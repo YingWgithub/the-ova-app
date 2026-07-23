@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>the Ova app</title>
+    <link rel="stylesheet" href="styles.css?v=done-bottom-1" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <section class="workspace" aria-label="Agenda workspace">
+        <header class="topbar">
+          <div class="brand-lockup">
+            <h1>the Ova app</h1>
+            <p class="tagline">
+              <span>The mind is not a vessel to be filled, but a fire to be kindled.</span>
+              <cite>— Plutarch</cite>
+            </p>
+          </div>
+          <div class="today-card" aria-live="polite">
+            <span id="weekday">Today</span>
+            <strong id="todayDate">--</strong>
+            <div class="mood-picker" aria-label="Mood check-in">
+              <button type="button" data-mood="-6" title="Mood -6">☹️</button>
+              <button type="button" data-mood="-3" title="Mood -3">🙁</button>
+              <button type="button" data-mood="0" title="Mood 0">😐</button>
+              <button type="button" data-mood="3" title="Mood 3">🙂</button>
+              <button type="button" data-mood="6" title="Mood 6">😃</button>
+            </div>
+          </div>
+        </header>
+
+        <section class="entry-panel" aria-label="Add agenda item">
+          <form id="agendaForm" class="agenda-form">
+            <label class="mind-entry-label">
+              <span class="visually-hidden">Mind entry</span>
+              <input id="taskTitle" type="text" autocomplete="off" placeholder="What's in my mind..." required />
+            </label>
+            <div class="form-grid">
+              <label>
+                <span>Target due date</span>
+                <input id="dueDate" type="date" required />
+              </label>
+              <label>
+                <span>Due time</span>
+                <input id="dueTime" type="time" />
+              </label>
+              <label class="reminder-field">
+                <span>Reminder type</span>
+                <div class="reminder-control">
+                  <select id="reminderType">
+                    <option value="one-time" selected>One-time</option>
+                    <option value="ongoing">Continuously ongoing</option>
+                    <option value="daily">Repeats daily</option>
+                    <option value="weekly">Repeats weekly</option>
+                    <option value="monthly">Repeats monthly</option>
+                  </select>
+                  <button id="taskUrgent" class="urgent-toggle" type="button" aria-pressed="false" aria-label="Urgent">!</button>
+                </div>
+              </label>
+            </div>
+            <fieldset class="tag-picker">
+              <legend class="visually-hidden">Tag choices</legend>
+              <div id="tagOptions" class="tag-options">
+                <button id="addTagButton" class="ghost-button add-tag-button" type="button" aria-label="Add tag">+</button>
+              </div>
+              <div id="customTagPanel" class="custom-tag-panel" hidden>
+                <input id="customTagInput" type="text" autocomplete="off" placeholder="New tag..." aria-label="New tag name" />
+                <div class="custom-color-row">
+                  <label class="custom-color-picker" aria-label="Custom tag color">
+                    <input id="customTagColor" type="color" value="#4f9edb" />
+                  </label>
+                </div>
+              </div>
+            </fieldset>
+            <button class="primary-action" type="submit">
+              <span aria-hidden="true">+</span>
+              Add
+            </button>
+          </form>
+        </section>
+
+        <section class="toolbar" aria-label="Agenda filters">
+          <div class="segmented-control" role="tablist" aria-label="Agenda view">
+            <button class="filter-button active" type="button" data-filter="all">All</button>
+            <button class="filter-button" type="button" data-filter="today">Today</button>
+            <button class="filter-button" type="button" data-filter="upcoming">Upcoming</button>
+            <button class="filter-button" type="button" data-filter="done">Done</button>
+          </div>
+          <button id="clearDone" class="ghost-button" type="button">Clear done</button>
+        </section>
+
+        <section class="agenda-list-section" aria-label="Agenda list">
+          <div id="emptyState" class="empty-state">
+            <div class="empty-visual" aria-hidden="true">
+              <div></div>
+              <div></div>
+              <div></div>
+            </div>
+            <h2>No agenda items yet</h2>
+            <p>Add something with a timeline and I will organize it here.</p>
+          </div>
+          <ul id="agendaList" class="agenda-list"></ul>
+        </section>
+      </section>
+
+      <aside class="assistant-panel" aria-label="AI generated summary and suggestions">
+        <section class="account-panel" aria-label="Account settings">
+          <div class="account-status">
+            <strong id="accountState">Local mode</strong>
+            <span id="accountDetail">Saved on this device</span>
+          </div>
+          <form id="authForm" class="auth-form">
+            <input id="authEmail" type="email" autocomplete="email" placeholder="Email" aria-label="Email" />
+            <input id="authPassword" type="password" autocomplete="current-password" placeholder="Password" aria-label="Password" />
+            <div class="auth-actions">
+              <button id="signInButton" class="ghost-button" type="button">Sign in</button>
+              <button id="createAccountButton" class="ghost-button" type="button">Create</button>
+            </div>
+          </form>
+          <div id="signedInActions" class="signed-in-actions" hidden>
+            <button id="syncNowButton" class="ghost-button" type="button">Sync now</button>
+            <button id="signOutButton" class="ghost-button" type="button">Sign out</button>
+          </div>
+          <p id="authMessage" class="auth-message" aria-live="polite"></p>
+        </section>
+        <div class="assistant-art" aria-hidden="true">
+          <div class="orbit"></div>
+          <div class="note-stack">
+            <span></span>
+            <span></span>
+            <span></span>
+          </div>
+        </div>
+        <div class="assistant-heading">
+          <p class="eyebrow">AI assistant</p>
+        </div>
+        <div id="aiSummary" class="ai-output" aria-live="polite"></div>
+      </aside>
+    </main>
+
+    <template id="agendaItemTemplate">
+      <li class="agenda-item">
+        <button class="complete-toggle" type="button" aria-label="Mark complete"></button>
+          <div class="item-main">
+            <div class="item-line">
+              <textarea class="summary-title-input" rows="1" aria-label="Edit summarized title"></textarea>
+              <div class="status-pills"></div>
+            </div>
+            <p class="original-entry"></p>
+            <div class="item-meta"></div>
+            <div class="follow-up-list"></div>
+            <form class="follow-up-form collapsed">
+              <button class="ghost-button follow-up-reveal" type="button">Add follow-up</button>
+              <input class="follow-up-input" type="text" placeholder="Follow-up comment..." aria-label="Follow-up comment" />
+              <button class="ghost-button follow-up-submit" type="submit">Add</button>
+            </form>
+          </div>
+        <button class="delete-button" type="button" aria-label="Delete item">x</button>
+      </li>
+    </template>
+
+    <script src="firebase-config.js?v=done-bottom-1"></script>
+    <script src="app.js?v=done-bottom-1"></script>
+  </body>
+</html>
