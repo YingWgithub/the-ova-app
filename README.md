@@ -32,5 +32,3 @@ No install step is required for local mode.
 ## Data Privacy
 
 Each person's entries are stored only in their own browser. Sharing this project on GitHub does not share your personal agenda data.
-
-If a friend downloads the app, their entries, moods, journal notes, tags, and follow-ups stay on their own device/browser.
