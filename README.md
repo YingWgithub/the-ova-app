@@ -1,6 +1,6 @@
 # The Ova App
 
-The Ova app is a personal agenda and reminder tool for turning narrative thoughts into organized entries, summaries, tags, keyword clouds, mood tracking, and follow-ups.
+The Ova app is a local personal agenda for turning messy thoughts into simple tasks, tags, follow-ups, mood notes, and a daily overview.
 
 ## Run Locally
 
@@ -14,33 +14,23 @@ No install step is required for local mode.
 
 ## Current Features
 
-- Add agenda entries from a plain-language thought.
-- Automatically create a shorter editable title.
-- Add target due date, due time, reminder type, and urgent marker.
-- Use built-in or custom colored tags.
-- Add follow-up comments with timestamps.
-- Keep completed items at the bottom of the agenda list.
-- View automatic summary, suggested focus, ongoing items, calendar dots, tag counts, keyword cloud, and mood trajectory.
-- Store local data in the browser.
+- Add an entry from "What's in my mind..."
+- Get a shorter editable title from the original entry.
+- Set due date, due time, reminder type, tags, and urgent marker.
+- Use one-time, daily, weekly, monthly, or continuously ongoing reminders.
+- Add follow-ups with timestamps.
+- Keep completed items at the bottom.
+- View summary, suggested focus, ongoing items, calendar, tag bars, keyword cloud, and mood trajectory.
+- Store everything locally in the browser.
 
-## Account-Ready Mode
+## Hidden Notes
 
-The app includes Firebase-ready account and cloud-sync code, but it runs in local mode until Firebase is configured.
-
-To enable accounts:
-
-1. Create a Firebase project.
-2. Enable Email/Password Authentication.
-3. Create a Cloud Firestore database.
-4. Publish the rules in `firestore.rules`.
-5. Copy values from your Firebase web app config into `firebase-config.js`.
-
-The example shape is in:
-
-```text
-firebase-config.example.js
-```
+- Click the date/mood box three times to open a small moment journal.
+- Click `Mood trajectory` three times to view the journal log.
+- Click outside the journal log to hide it again.
 
 ## Data Privacy
 
-In local mode, each person's entries are stored only in their own browser. Sharing this project on GitHub does not share your personal agenda data.
+Each person's entries are stored only in their own browser. Sharing this project on GitHub does not share your personal agenda data.
+
+If a friend downloads the app, their entries, moods, journal notes, tags, and follow-ups stay on their own device/browser.

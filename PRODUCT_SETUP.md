@@ -1,39 +1,22 @@
 # The Ova App Product Setup
 
-This app now has an account-ready structure:
+This app is currently local-only:
 
-- Local mode works with browser storage when `firebase-config.js` is not configured.
-- Account mode uses Firebase Authentication for sign in.
-- Synced agenda data is stored in Cloud Firestore at `users/{uid}/ova/state`.
-- Firestore rules in `firestore.rules` restrict each user to their own data.
+- It runs by opening `index.html` in a browser.
+- It stores agenda entries, moods, journal notes, follow-ups, and custom tags in that browser's local storage.
+- No server, account, install step, or cloud database is required.
 
-## Turn On Accounts
+## Sharing With Friends
 
-1. Create a Firebase project.
-2. Register a web app in that Firebase project.
-3. Enable Authentication with the Email/Password provider.
-4. Create a Cloud Firestore database.
-5. Publish the rules from `firestore.rules`.
-6. Copy `firebase-config.example.js` into `firebase-config.js`.
-7. Replace the placeholder values in `firebase-config.js` with your Firebase web app config.
-
-After that, the account form appears in the app. When a user signs in, their entries, moods, and custom tags sync to their account.
+Friends can clone or download the GitHub repo and open `index.html` locally. Their data will be separate from yours because browser local storage is device/browser-specific.
 
 ## Data Model
 
-Each user owns one document:
-
-```text
-users/{uid}/ova/state
-```
-
-That document stores:
+Local storage keeps:
 
 - `items`
 - `moods`
 - `journals`
 - `customTags`
-- `schemaVersion`
-- `updatedAt`
 
-This is intentionally simple for the first real-product version. It can later be split into separate documents per agenda entry if you want collaboration, sharing, history, or large-scale querying.
+This can later be moved to a real account system when you are ready for access across devices, collaboration, sharing, history, or larger-scale querying.

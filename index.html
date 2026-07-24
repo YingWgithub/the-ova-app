@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>the Ova app</title>
-    <link rel="stylesheet" href="styles.css?v=yearly-month-averages-1" />
+    <link rel="stylesheet" href="styles.css?v=local-only-1" />
   </head>
   <body>
     <main class="app-shell">
@@ -112,25 +112,6 @@
 
       <aside class="assistant-panel" aria-label="AI generated summary and suggestions">
         <div class="assistant-card">
-          <section class="account-panel" aria-label="Account settings">
-            <div class="account-status">
-              <strong id="accountState">Local mode</strong>
-              <span id="accountDetail">Saved on this device</span>
-            </div>
-            <form id="authForm" class="auth-form">
-              <input id="authEmail" type="email" autocomplete="email" placeholder="Email" aria-label="Email" />
-              <input id="authPassword" type="password" autocomplete="current-password" placeholder="Password" aria-label="Password" />
-              <div class="auth-actions">
-                <button id="signInButton" class="ghost-button" type="button">Sign in</button>
-                <button id="createAccountButton" class="ghost-button" type="button">Create</button>
-              </div>
-            </form>
-            <div id="signedInActions" class="signed-in-actions" hidden>
-              <button id="syncNowButton" class="ghost-button" type="button">Sync now</button>
-              <button id="signOutButton" class="ghost-button" type="button">Sign out</button>
-            </div>
-            <p id="authMessage" class="auth-message" aria-live="polite"></p>
-          </section>
           <div class="assistant-art" aria-hidden="true">
             <div class="orbit"></div>
             <div class="note-stack">
@@ -169,7 +150,6 @@
       </li>
     </template>
 
-    <script src="firebase-config.js?v=yearly-month-averages-1"></script>
-    <script src="app.js?v=yearly-month-averages-1"></script>
+    <script src="app.js?v=local-only-1"></script>
   </body>
 </html>
