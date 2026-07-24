@@ -70,7 +70,6 @@ button {
 }
 
 .workspace,
-.assistant-panel,
 .entry-panel {
   background: rgba(255, 255, 255, 0.94);
   border: 1px solid var(--line);
@@ -197,7 +196,7 @@ h1 {
 }
 
 .entry-panel {
-  margin: 18px 28px 16px;
+  margin: 18px 28px 28px;
   padding: 18px;
   border-radius: 8px;
   box-shadow: none;
@@ -389,7 +388,12 @@ select:focus {
 
 .entry-panel .primary-action {
   min-height: 46px;
+  background: rgba(47, 121, 184, 0.82);
   font-size: 0.98rem;
+}
+
+.entry-panel .primary-action:hover {
+  background: rgba(38, 108, 165, 0.88);
 }
 
 .primary-action:hover {
@@ -421,7 +425,7 @@ select:focus {
   align-items: center;
   justify-content: space-between;
   gap: 6px;
-  margin: 0 28px;
+  margin: 0 46px;
   padding: 5px 8px;
   border: 1px solid var(--line);
   border-bottom: 0;
@@ -457,7 +461,7 @@ select:focus {
 }
 
 .agenda-list-section {
-  margin: 0 28px 28px;
+  margin: 0 46px 28px;
   padding: 6px 8px 8px;
   border: 1px solid var(--line);
   border-radius: 0 0 8px 8px;
@@ -466,7 +470,7 @@ select:focus {
 
 .agenda-list {
   display: grid;
-  gap: 5px;
+  gap: 4px;
   margin: 0;
   padding: 0;
   list-style: none;
@@ -476,8 +480,8 @@ select:focus {
   display: grid;
   grid-template-columns: 20px minmax(0, 1fr) 24px;
   align-items: flex-start;
-  gap: 6px;
-  padding: 7px 9px;
+  gap: 5px;
+  padding: 5px 8px;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: var(--surface);
@@ -534,16 +538,16 @@ select:focus {
 
 .summary-title-input {
   width: 100%;
-  min-height: 1.42em;
+  min-height: 1.28em;
   border: 1px solid transparent;
   border-radius: 6px;
   background: transparent;
   color: var(--ink);
   overflow: hidden;
-  padding: 1px 3px;
+  padding: 0 3px;
   font-size: 0.9rem;
   font-weight: 600;
-  line-height: 1.2;
+  line-height: 1.08;
   resize: none;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
@@ -557,11 +561,11 @@ select:focus {
 }
 
 .original-entry {
-  margin: 0 0 4px;
+  margin: 0 0 2px;
   color: #8793a5;
   font-size: 0.72rem;
   font-style: italic;
-  line-height: 1.25;
+  line-height: 1.12;
   overflow-wrap: anywhere;
   display: -webkit-box;
   -webkit-line-clamp: 1;
@@ -644,8 +648,8 @@ select:focus {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 4px 6px;
-  margin-bottom: 3px;
+  gap: 2px 5px;
+  margin-bottom: 1px;
   color: var(--muted);
   font-size: 0.76rem;
   font-weight: 500;
@@ -661,8 +665,8 @@ select:focus {
 
 .follow-up-list {
   display: grid;
-  gap: 3px;
-  margin-top: 4px;
+  gap: 2px;
+  margin-top: 2px;
 }
 
 .follow-up-entry {
@@ -680,7 +684,7 @@ select:focus {
   margin-bottom: 0;
   color: #43515a;
   font-size: 0.72rem;
-  line-height: 1.25;
+  line-height: 1.12;
   overflow-wrap: anywhere;
 }
 
@@ -688,7 +692,7 @@ select:focus {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 34px;
   gap: 4px;
-  margin-top: 3px;
+  margin-top: 1px;
   align-items: center;
 }
 
@@ -793,11 +797,33 @@ select:focus {
   top: 18px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 26px;
   height: calc(100vh - 36px);
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  overflow: visible;
+}
+
+.assistant-card {
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
+  flex-direction: column;
+  gap: 8px;
+  border: 1px solid var(--line);
   border-radius: 8px;
-  padding: 12px;
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: var(--shadow);
   overflow: auto;
+  padding: 12px;
+}
+
+.assistant-metrics {
+  flex: 0 0 auto;
+  max-height: 15vh;
+  overflow: auto;
+  padding: 2px 2px 4px;
 }
 
 .account-panel {
@@ -1009,6 +1035,32 @@ select:focus {
   background: #ffffff;
 }
 
+.calendar-block {
+  margin-bottom: 14px;
+  border-color: #d6e3ef;
+  background: #fcfeff;
+}
+
+.tag-distribution-block,
+.keyword-block,
+.mood-block {
+  border-color: transparent;
+  background: transparent;
+  padding: 8px 2px;
+}
+
+.tag-distribution-block {
+  border-top: 1px solid rgba(102, 117, 139, 0.26);
+  border-radius: 0;
+  padding-top: 10px;
+}
+
+.keyword-block,
+.mood-block {
+  border-top: 1px solid rgba(102, 117, 139, 0.22);
+  border-radius: 0;
+}
+
 .tag-distribution-block h3,
 .calendar-block h3,
 .keyword-block h3,
@@ -1024,6 +1076,13 @@ select:focus {
 .calendar-grid {
   display: grid;
   grid-template-columns: repeat(7, minmax(0, 1fr));
+}
+
+.calendar-grid {
+  border: 1px solid #eef4fa;
+  border-radius: 6px;
+  padding: 2px;
+  background: #ffffff;
 }
 
 .calendar-weekdays {
@@ -1168,22 +1227,21 @@ button.calendar-cell {
 
 .tag-distribution {
   display: grid;
-  gap: 4px;
+  gap: 3px;
 }
 
 .tag-stat {
   display: grid;
-  gap: 2px;
+  grid-template-columns: minmax(72px, 0.85fr) minmax(0, 1.15fr) 34px;
+  gap: 5px;
+  align-items: center;
   background: transparent;
 }
 
 .tag-stat-top {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
+  display: contents;
   color: #43515a;
-  font-size: 0.72rem;
+  font-size: 0.68rem;
   font-weight: 560;
 }
 
@@ -1192,13 +1250,15 @@ button.calendar-cell {
 }
 
 .tag-stat-top strong {
-  flex: 0 0 auto;
+  justify-self: end;
   color: var(--muted);
   font-weight: 650;
 }
 
 .tag-meter {
-  height: 4px;
+  grid-column: 2;
+  grid-row: 1;
+  height: 3px;
   border-radius: 999px;
   background: #ecf3f9;
   overflow: hidden;

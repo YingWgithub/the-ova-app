@@ -101,6 +101,7 @@ const list = document.querySelector("#agendaList");
 const emptyState = document.querySelector("#emptyState");
 const template = document.querySelector("#agendaItemTemplate");
 const aiSummary = document.querySelector("#aiSummary");
+const aiMetrics = document.querySelector("#aiMetrics");
 const clearDoneButton = document.querySelector("#clearDone");
 const filterButtons = document.querySelectorAll(".filter-button");
 const weekday = document.querySelector("#weekday");
@@ -1010,9 +1011,9 @@ function generateLocalSummary() {
 
   if (!items.length) {
     aiSummary.innerHTML = [
-      summaryBlock("Nothing to summarize yet", "Add a few agenda items with due dates. Tags can be selected or inferred from the task.", "summary-overview-block"),
-      moodTrajectoryBlock(moodStats)
+      summaryBlock("Nothing to summarize yet", "Add a few agenda items with due dates. Tags can be selected or inferred from the task.", "summary-overview-block")
     ].join("");
+    aiMetrics.innerHTML = moodTrajectoryBlock(moodStats);
     return;
   }
 
@@ -1028,7 +1029,10 @@ function generateLocalSummary() {
     summaryBlock("Summary", overview, "summary-overview-block"),
     listBlock("Suggested focus", focusItems, "suggested-focus-block"),
     ongoingBlock(ongoing),
-    calendarBlock(planned),
+    calendarBlock(planned)
+  ].join("");
+
+  aiMetrics.innerHTML = [
     tagDistributionBlock(tagStats, active.length),
     keywordNetworkBlock(keywordStats),
     moodTrajectoryBlock(moodStats)
@@ -1442,7 +1446,7 @@ function keywordLabel(key) {
 }
 
 function bindKeywordCloud() {
-  aiSummary.querySelectorAll(".keyword-word").forEach((button) => {
+  aiMetrics.querySelectorAll(".keyword-word").forEach((button) => {
     button.addEventListener("click", () => selectKeyword(button.dataset.key));
   });
 }
