@@ -1,5 +1,6 @@
 const STORAGE_KEY = "personal-agenda-items";
 const MOOD_STORAGE_KEY = "ova-mood-entries";
+const JOURNAL_STORAGE_KEY = "ova-moment-journal";
 const CUSTOM_TAG_STORAGE_KEY = "ova-custom-tags";
 const DEFAULT_CUSTOM_TAG_COLOR = "#4f9edb";
 
@@ -103,10 +104,14 @@ const template = document.querySelector("#agendaItemTemplate");
 const aiSummary = document.querySelector("#aiSummary");
 const aiMetrics = document.querySelector("#aiMetrics");
 const clearDoneButton = document.querySelector("#clearDone");
+const toggleOngoingListButton = document.querySelector("#toggleOngoingList");
 const filterButtons = document.querySelectorAll(".filter-button");
 const weekday = document.querySelector("#weekday");
 const todayDate = document.querySelector("#todayDate");
+const todayCard = document.querySelector(".today-card");
 const moodButtons = document.querySelectorAll(".mood-picker button");
+const journalForm = document.querySelector("#journalForm");
+const journalInput = document.querySelector("#journalInput");
 const accountPanel = document.querySelector(".account-panel");
 const accountState = document.querySelector("#accountState");
 const accountDetail = document.querySelector("#accountDetail");
@@ -122,14 +127,21 @@ const authMessage = document.querySelector("#authMessage");
 
 let items = normalizeItems(loadItems());
 let moods = loadMoods();
+let journals = loadJournals();
 let customTags = loadCustomTags();
 let selectedCustomTagColor = DEFAULT_CUSTOM_TAG_COLOR;
 let currentFilter = "all";
+let showOngoingInList = false;
 let selectedKeyword = "";
 let selectedCalendarDate = "";
+let showJournalLog = false;
 let cloud = { enabled: false, ready: false, user: null };
 let cloudSaveTimer = 0;
 let isApplyingCloudData = false;
+let todayCardClickCount = 0;
+let todayCardClickTimer = 0;
+let moodHeadingClickCount = 0;
+let moodHeadingClickTimer = 0;
 saveItems();
 
 function startOfDay(date) {
@@ -162,6 +174,14 @@ function loadMoods() {
   }
 }
 
+function loadJournals() {
+  try {
+    return JSON.parse(localStorage.getItem(JOURNAL_STORAGE_KEY)) || [];
+  } catch {
+    return [];
+  }
+}
+
 function loadCustomTags() {
   try {
     const parsed = JSON.parse(localStorage.getItem(CUSTOM_TAG_STORAGE_KEY)) || [];
@@ -190,6 +210,17 @@ function normalizeCustomTag(value) {
   if (!name) return null;
   const color = isHexColor(value?.color) ? value.color.toLowerCase() : DEFAULT_CUSTOM_TAG_COLOR;
   return { name, color };
+}
+
+function normalizeJournalEntry(value) {
+  const text = String(value?.text || "").trim();
+  const createdAt = value?.createdAt || "";
+  if (!text || Number.isNaN(new Date(createdAt).getTime())) return null;
+  return {
+    id: value.id || crypto.randomUUID(),
+    text,
+    createdAt
+  };
 }
 
 function allTags() {
@@ -264,6 +295,11 @@ function saveMoods() {
   queueCloudSave();
 }
 
+function saveJournals() {
+  localStorage.setItem(JOURNAL_STORAGE_KEY, JSON.stringify(journals));
+  queueCloudSave();
+}
+
 function hasFirebaseConfig() {
   const config = window.OVA_FIREBASE_CONFIG;
   return Boolean(config && config.apiKey && config.projectId && config.appId);
@@ -273,6 +309,7 @@ function accountData() {
   return {
     items,
     moods,
+    journals,
     customTags,
     schemaVersion: 1
   };
@@ -283,9 +320,11 @@ function applyAccountData(data) {
   isApplyingCloudData = true;
   items = normalizeItems(Array.isArray(data.items) ? data.items : []);
   moods = data.moods && typeof data.moods === "object" ? data.moods : {};
+  journals = Array.isArray(data.journals) ? data.journals.map(normalizeJournalEntry).filter(Boolean) : [];
   customTags = Array.isArray(data.customTags) ? data.customTags.map(normalizeCustomTag).filter(Boolean) : [];
   saveItems();
   saveMoods();
+  saveJournals();
   saveCustomTags();
   isApplyingCloudData = false;
   renderTagOptions();
@@ -511,11 +550,14 @@ function isRepeating(item) {
 
 function filteredItems() {
   const sorted = [...items].sort(compareAgendaItems);
+  const listItems = showOngoingInList
+    ? sorted
+    : sorted.filter((item) => item.reminderType !== "ongoing");
 
-  if (currentFilter === "today") return sorted.filter((item) => !item.done && isToday(item));
-  if (currentFilter === "upcoming") return sorted.filter((item) => !item.done && isUpcoming(item));
-  if (currentFilter === "done") return sorted.filter((item) => item.done);
-  return sorted;
+  if (currentFilter === "today") return listItems.filter((item) => !item.done && isToday(item));
+  if (currentFilter === "upcoming") return listItems.filter((item) => !item.done && isUpcoming(item));
+  if (currentFilter === "done") return listItems.filter((item) => item.done);
+  return listItems;
 }
 
 function compareAgendaItems(a, b) {
@@ -638,6 +680,71 @@ function setMood(score) {
   generateLocalSummary();
 }
 
+function handleTodayCardClick(event) {
+  if (journalForm.contains(event.target)) return;
+  todayCardClickCount += 1;
+  window.clearTimeout(todayCardClickTimer);
+  todayCardClickTimer = window.setTimeout(() => {
+    todayCardClickCount = 0;
+  }, 900);
+  if (todayCardClickCount >= 3) {
+    todayCardClickCount = 0;
+    revealJournalEntry();
+  }
+}
+
+function revealJournalEntry() {
+  journalForm.hidden = false;
+  journalInput.value = "";
+  journalInput.focus();
+}
+
+function hideJournalEntry() {
+  journalInput.value = "";
+  journalForm.hidden = true;
+}
+
+function addJournalEntry(event) {
+  event.preventDefault();
+  const text = journalInput.value.trim();
+  if (!text) {
+    hideJournalEntry();
+    return;
+  }
+  journals = [
+    {
+      id: crypto.randomUUID(),
+      text,
+      createdAt: new Date().toISOString()
+    },
+    ...journals
+  ];
+  saveJournals();
+  hideJournalEntry();
+  generateLocalSummary();
+}
+
+function handleMoodHeadingClick(event) {
+  event.stopPropagation();
+  moodHeadingClickCount += 1;
+  window.clearTimeout(moodHeadingClickTimer);
+  moodHeadingClickTimer = window.setTimeout(() => {
+    moodHeadingClickCount = 0;
+  }, 900);
+  if (moodHeadingClickCount >= 3) {
+    moodHeadingClickCount = 0;
+    showJournalLog = !showJournalLog;
+    generateLocalSummary();
+  }
+}
+
+function handleDocumentClick(event) {
+  if (!showJournalLog) return;
+  if (event.target.closest(".mood-block")) return;
+  showJournalLog = false;
+  generateLocalSummary();
+}
+
 function autoTag(text) {
   const haystack = text.toLowerCase();
   const matches = DEFAULT_TAGS.filter((tag) => TAG_KEYWORDS[tag].some((keyword) => haystack.includes(keyword)));
@@ -732,6 +839,7 @@ function renderList() {
   const visibleItems = filteredItems();
   list.innerHTML = "";
   emptyState.hidden = visibleItems.length > 0;
+  renderOngoingListToggle();
 
   visibleItems.forEach((item) => {
     const row = template.content.firstElementChild.cloneNode(true);
@@ -769,6 +877,15 @@ function renderList() {
     list.appendChild(row);
     resizeSummaryTitle(titleInput);
   });
+}
+
+function renderOngoingListToggle() {
+  const ongoingCount = items.filter((item) => !item.done && item.reminderType === "ongoing").length;
+  toggleOngoingListButton.hidden = ongoingCount === 0;
+  toggleOngoingListButton.setAttribute("aria-pressed", String(showOngoingInList));
+  toggleOngoingListButton.textContent = showOngoingInList
+    ? "Hide ongoing"
+    : `Show ongoing${ongoingCount ? ` (${ongoingCount})` : ""}`;
 }
 
 function resizeSummaryTitle(input) {
@@ -838,6 +955,17 @@ function renderFollowUps(container, followUps) {
 function formatTimestamp(value) {
   const date = new Date(value);
   return new Intl.DateTimeFormat(undefined, {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit"
+  }).format(date);
+}
+
+function formatJournalTimestamp(value) {
+  const date = new Date(value);
+  return new Intl.DateTimeFormat(undefined, {
+    year: "numeric",
     month: "short",
     day: "numeric",
     hour: "numeric",
@@ -1014,6 +1142,7 @@ function generateLocalSummary() {
       summaryBlock("Nothing to summarize yet", "Add a few agenda items with due dates. Tags can be selected or inferred from the task.", "summary-overview-block")
     ].join("");
     aiMetrics.innerHTML = moodTrajectoryBlock(moodStats);
+    bindMoodJournalToggle();
     return;
   }
 
@@ -1038,6 +1167,7 @@ function generateLocalSummary() {
     moodTrajectoryBlock(moodStats)
   ].join("");
   bindKeywordCloud();
+  bindMoodJournalToggle();
   bindCalendarDays();
 }
 
@@ -1299,6 +1429,7 @@ function summarizeMoods() {
   const currentMonth = todayKey().slice(0, 7);
   const yearly = entries.filter((entry) => entry.date.startsWith(currentYear));
   const monthly = entries.filter((entry) => entry.date.startsWith(currentMonth));
+  const yearlyMonthly = averageMoodsByMonth(yearly);
   const average = yearly.length
     ? yearly.reduce((sum, entry) => sum + entry.score, 0) / yearly.length
     : 0;
@@ -1310,55 +1441,180 @@ function summarizeMoods() {
     entries,
     monthly,
     yearly,
+    yearlyMonthly,
     monthAverage,
     average,
     latest: entries[entries.length - 1]
   };
 }
 
-function moodTrajectoryBlock({ monthly, yearly, monthAverage, average, latest }) {
+function averageMoodsByMonth(entries) {
+  const monthBuckets = new Map();
+  entries.forEach((entry) => {
+    const monthKey = entry.date.slice(0, 7);
+    const bucket = monthBuckets.get(monthKey) || { total: 0, count: 0 };
+    bucket.total += entry.score;
+    bucket.count += 1;
+    monthBuckets.set(monthKey, bucket);
+  });
+
+  return [...monthBuckets.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([monthKey, bucket]) => ({
+      date: `${monthKey}-01`,
+      score: bucket.total / bucket.count,
+      count: bucket.count
+    }));
+}
+
+function moodTrajectoryBlock({ monthly, yearly, yearlyMonthly, monthAverage, average, latest }) {
   if (!yearly.length) {
-    return summaryBlock("Mood trajectory", "Choose a mood in today's card to start a monthly and yearly mood record.", "mood-block");
+    return `
+      <section class="summary-block mood-block">
+        <h3 class="mood-heading" title="Hidden journal log">Mood trajectory</h3>
+        <p>Choose a mood in today's card to start a monthly and yearly mood record.</p>
+        ${journalLogBlock()}
+      </section>
+    `;
   }
 
-  const monthPoints = sparklinePoints(monthly);
-  const yearPoints = sparklinePoints(yearly);
+  const monthChart = moodChartSvg(monthly, "month");
+  const yearChart = moodChartSvg(yearlyMonthly, "year");
   const latestText = latest ? `${latest.score > 0 ? "+" : ""}${latest.score}` : "0";
   const monthAverageText = `${monthAverage >= 0 ? "+" : ""}${monthAverage.toFixed(1)}`;
   const averageText = `${average >= 0 ? "+" : ""}${average.toFixed(1)}`;
 
   return `
     <section class="summary-block mood-block">
-      <h3>Mood trajectory</h3>
+      <h3 class="mood-heading" title="Hidden journal log">Mood trajectory</h3>
       <p class="mood-chart-label">This month</p>
       <div class="mood-chart" aria-label="Monthly mood trajectory from -6 to 6">
-        <svg viewBox="0 0 220 90" role="img" aria-label="Yearly mood trajectory">
-          <line x1="0" y1="45" x2="220" y2="45"></line>
-          <polyline points="${monthPoints}"></polyline>
-        </svg>
+        ${monthChart}
       </div>
       <p class="mood-chart-label">This year</p>
       <div class="mood-chart mood-chart-year" aria-label="Yearly mood trajectory from -6 to 6">
-        <svg viewBox="0 0 220 90" role="img" aria-label="Yearly mood trajectory">
-          <line x1="0" y1="45" x2="220" y2="45"></line>
-          <polyline points="${yearPoints}"></polyline>
-        </svg>
+        ${yearChart}
       </div>
       <p class="mood-stats">Latest ${escapeHtml(latestText)}. Month avg ${escapeHtml(monthAverageText)}. Year avg ${escapeHtml(averageText)} from ${yearly.length} check-in${yearly.length === 1 ? "" : "s"}.</p>
+      ${journalLogBlock()}
     </section>
   `;
 }
 
-function sparklinePoints(entries) {
+function journalLogBlock() {
+  if (!showJournalLog) return "";
+  if (!journals.length) {
+    return `<div class="journal-log" aria-label="Moment journal log"><p>No journal moments yet.</p></div>`;
+  }
+
+  const rows = journals
+    .slice()
+    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+    .map((entry) => `
+      <article class="journal-log-entry">
+        <time datetime="${escapeHtml(entry.createdAt)}">${escapeHtml(formatJournalTimestamp(entry.createdAt))}</time>
+        <p>${escapeHtml(entry.text)}</p>
+      </article>
+    `).join("");
+
+  return `<div class="journal-log" aria-label="Moment journal log">${rows}</div>`;
+}
+
+function moodChartSvg(entries, scope) {
+  const geometry = moodChartGeometry(entries);
+  const points = sparklinePoints(entries, geometry);
+  const dots = sparklineDots(entries, geometry);
+  const axis = timelineAxis(entries, scope, geometry);
+
+  return `
+    <svg
+      viewBox="0 0 ${geometry.width} 90"
+      role="img"
+      aria-label="${scope === "year" ? "Yearly" : "Monthly"} mood trajectory"
+      style="--mood-axis-font: ${geometry.fontSize}px; --mood-chart-width: ${geometry.width};"
+    >
+      <line x1="0" y1="45" x2="${geometry.width}" y2="45"></line>
+      ${axis}
+      <polyline points="${points}"></polyline>
+      ${dots}
+    </svg>
+  `;
+}
+
+function moodChartGeometry(entries) {
+  const count = Math.max(entries.length, 1);
+  const width = Math.min(520, Math.max(220, 160 + count * 22));
+  const left = 10;
+  const right = width - 10;
+  const pointRadius = count > 18 ? 1.8 : count > 10 ? 2.2 : 2.8;
+  const fontSize = count > 18 ? 7 : count > 10 ? 8 : 10;
+  return { count, width, left, right, span: right - left, pointRadius, fontSize };
+}
+
+function sparklinePoints(entries, geometry = moodChartGeometry(entries)) {
   if (entries.length === 1) {
     const y = moodY(entries[0].score);
-    return `8,${y} 212,${y}`;
+    return `${geometry.left},${y} ${geometry.right},${y}`;
   }
 
   return entries.map((entry, index) => {
-    const x = 8 + (index / (entries.length - 1)) * 204;
+    const x = geometry.left + (index / (entries.length - 1)) * geometry.span;
     return `${x.toFixed(1)},${moodY(entry.score)}`;
   }).join(" ");
+}
+
+function sparklineDots(entries, geometry = moodChartGeometry(entries)) {
+  if (!entries.length) return "";
+  const points = entries.length === 1
+    ? [{ x: geometry.width / 2, y: moodY(entries[0].score) }]
+    : entries.map((entry, index) => ({
+        x: geometry.left + (index / (entries.length - 1)) * geometry.span,
+        y: moodY(entry.score)
+      }));
+
+  return points.map((point) => `<circle class="mood-point" cx="${Number(point.x).toFixed(1)}" cy="${point.y}" r="${geometry.pointRadius}"></circle>`).join("");
+}
+
+function timelineAxis(entries, scope, geometry = moodChartGeometry(entries)) {
+  if (!entries.length) return "";
+  const labels = timelineLabels(entries, scope, geometry);
+  return labels.map(({ x, label }) => `
+    <g class="mood-tick">
+      <line x1="${x}" y1="78" x2="${x}" y2="82"></line>
+      <text x="${x}" y="89">${escapeHtml(label)}</text>
+    </g>
+  `).join("");
+}
+
+function timelineLabels(entries, scope, geometry = moodChartGeometry(entries)) {
+  if (!entries.length) return [];
+  const first = entries[0];
+  if (scope === "month") {
+    return [{ x: geometry.width / 2, label: shortTimelineLabel(first.date, scope) }];
+  }
+  const last = entries[entries.length - 1];
+  if (entries.length === 1) return [{ x: geometry.width / 2, label: shortTimelineLabel(first.date, scope) }];
+  const labels = [
+    { x: geometry.left, label: shortTimelineLabel(first.date, scope) },
+    { x: geometry.right, label: shortTimelineLabel(last.date, scope) }
+  ];
+  if (entries.length >= 7) {
+    const middleIndex = Math.floor((entries.length - 1) / 2);
+    labels.splice(1, 0, {
+      x: geometry.left + (middleIndex / (entries.length - 1)) * geometry.span,
+      label: shortTimelineLabel(entries[middleIndex].date, scope)
+    });
+  }
+  return labels;
+}
+
+function shortTimelineLabel(dateKey, scope) {
+  const [year, month, day] = dateKey.split("-").map(Number);
+  const date = new Date(year, month - 1, day);
+  if (scope === "year") {
+    return new Intl.DateTimeFormat(undefined, { month: "short" }).format(date);
+  }
+  return new Intl.DateTimeFormat(undefined, { month: "long" }).format(date);
 }
 
 function moodY(score) {
@@ -1410,7 +1666,7 @@ function keywordNetworkBlock(keywordGraph) {
 
 function selectedKeywordBlock() {
   if (!selectedKeyword) {
-    return `<p class="keyword-help">Click a word to see related entries here.</p>`;
+    return "";
   }
 
   const related = items
@@ -1448,6 +1704,12 @@ function keywordLabel(key) {
 function bindKeywordCloud() {
   aiMetrics.querySelectorAll(".keyword-word").forEach((button) => {
     button.addEventListener("click", () => selectKeyword(button.dataset.key));
+  });
+}
+
+function bindMoodJournalToggle() {
+  aiMetrics.querySelectorAll(".mood-heading").forEach((heading) => {
+    heading.addEventListener("click", handleMoodHeadingClick);
   });
 }
 
@@ -1499,6 +1761,10 @@ filterButtons.forEach((button) => {
 
 form.addEventListener("submit", addItem);
 clearDoneButton.addEventListener("click", clearDone);
+toggleOngoingListButton.addEventListener("click", () => {
+  showOngoingInList = !showOngoingInList;
+  renderList();
+});
 signInButton.addEventListener("click", signIn);
 createAccountButton.addEventListener("click", createAccount);
 syncNowButton.addEventListener("click", () => {
@@ -1532,6 +1798,17 @@ customTagInput.addEventListener("blur", () => {
     if (!customTagInput.value.trim() && !customTagPanel.contains(document.activeElement)) {
       customTagPanel.hidden = true;
     }
+  }, 0);
+});
+todayCard.addEventListener("click", handleTodayCardClick);
+document.addEventListener("click", handleDocumentClick);
+journalForm.addEventListener("submit", addJournalEntry);
+journalInput.addEventListener("keydown", (event) => {
+  if (event.key === "Escape") hideJournalEntry();
+});
+journalInput.addEventListener("blur", () => {
+  window.setTimeout(() => {
+    if (!journalInput.value.trim() && !journalForm.contains(document.activeElement)) hideJournalEntry();
   }, 0);
 });
 moodButtons.forEach((button) => button.addEventListener("click", () => setMood(Number(button.dataset.mood))));

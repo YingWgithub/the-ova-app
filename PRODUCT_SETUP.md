@@ -31,6 +31,7 @@ That document stores:
 
 - `items`
 - `moods`
+- `journals`
 - `customTags`
 - `schemaVersion`
 - `updatedAt`

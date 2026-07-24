@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>the Ova app</title>
-    <link rel="stylesheet" href="styles.css?v=long-planning-card-2" />
+    <link rel="stylesheet" href="styles.css?v=yearly-month-averages-1" />
   </head>
   <body>
     <main class="app-shell">
@@ -27,6 +27,9 @@
               <button type="button" data-mood="3" title="Mood 3">🙂</button>
               <button type="button" data-mood="6" title="Mood 6">😃</button>
             </div>
+            <form id="journalForm" class="journal-form" hidden>
+              <input id="journalInput" type="text" autocomplete="off" placeholder="Moment journal..." aria-label="Moment journal" />
+            </form>
           </div>
         </header>
 
@@ -87,7 +90,10 @@
             <button class="filter-button" type="button" data-filter="upcoming">Upcoming</button>
             <button class="filter-button" type="button" data-filter="done">Done</button>
           </div>
-          <button id="clearDone" class="ghost-button" type="button">Clear done</button>
+          <div class="toolbar-actions">
+            <button id="toggleOngoingList" class="ghost-button list-toggle" type="button" aria-pressed="false">Show ongoing</button>
+            <button id="clearDone" class="ghost-button" type="button">Clear done</button>
+          </div>
         </section>
 
         <section class="agenda-list-section" aria-label="Agenda list">
@@ -163,7 +169,7 @@
       </li>
     </template>
 
-    <script src="firebase-config.js?v=long-planning-card-2"></script>
-    <script src="app.js?v=long-planning-card-2"></script>
+    <script src="firebase-config.js?v=yearly-month-averages-1"></script>
+    <script src="app.js?v=yearly-month-averages-1"></script>
   </body>
 </html>
