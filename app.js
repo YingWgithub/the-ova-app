@@ -913,7 +913,7 @@ function generateLocalSummary() {
   const urgent = planned.filter((item) => item.urgent);
   const repeating = planned.filter(isRepeating);
   const nextThree = planned.slice(0, 3);
-  const tagStats = summarizeTags(active);
+  const tagStats = summarizeTags(items);
   const keywordStats = summarizeKeywords(active);
   const moodStats = summarizeMoods();
 
@@ -942,7 +942,7 @@ function generateLocalSummary() {
   ].join("");
 
   aiMetrics.innerHTML = [
-    tagDistributionBlock(tagStats, active.length),
+    tagDistributionBlock(tagStats, items.length),
     keywordNetworkBlock(keywordStats),
     moodTrajectoryBlock(moodStats)
   ].join("");
