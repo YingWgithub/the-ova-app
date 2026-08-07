@@ -112,6 +112,18 @@ const todayCard = document.querySelector(".today-card");
 const moodButtons = document.querySelectorAll(".mood-picker button");
 const journalForm = document.querySelector("#journalForm");
 const journalInput = document.querySelector("#journalInput");
+const accountPanel = document.querySelector(".account-panel");
+const accountState = document.querySelector("#accountState");
+const accountDetail = document.querySelector("#accountDetail");
+const authForm = document.querySelector("#authForm");
+const authEmailInput = document.querySelector("#authEmail");
+const authPasswordInput = document.querySelector("#authPassword");
+const signInButton = document.querySelector("#signInButton");
+const createAccountButton = document.querySelector("#createAccountButton");
+const signedInActions = document.querySelector("#signedInActions");
+const syncNowButton = document.querySelector("#syncNowButton");
+const signOutButton = document.querySelector("#signOutButton");
+const authMessage = document.querySelector("#authMessage");
 
 let items = normalizeItems(loadItems());
 let moods = loadMoods();
@@ -127,6 +139,9 @@ let todayCardClickCount = 0;
 let todayCardClickTimer = 0;
 let moodHeadingClickCount = 0;
 let moodHeadingClickTimer = 0;
+let cloud = { ready: false, user: null };
+let cloudSaveTimer = 0;
+let isApplyingCloudData = false;
 saveItems();
 
 function startOfDay(date) {
@@ -178,6 +193,7 @@ function loadCustomTags() {
 
 function saveCustomTags() {
   localStorage.setItem(CUSTOM_TAG_STORAGE_KEY, JSON.stringify(customTags));
+  queueCloudSave();
 }
 
 function normalizeTagName(value) {
@@ -271,14 +287,217 @@ function localDateFromIso(value) {
 
 function saveItems() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+  queueCloudSave();
 }
 
 function saveMoods() {
   localStorage.setItem(MOOD_STORAGE_KEY, JSON.stringify(moods));
+  queueCloudSave();
 }
 
 function saveJournals() {
   localStorage.setItem(JOURNAL_STORAGE_KEY, JSON.stringify(journals));
+  queueCloudSave();
+}
+
+function hasCloudConfig() {
+  const config = window.OVA_FIREBASE_CONFIG;
+  return Boolean(config && config.apiKey && config.projectId && config.appId);
+}
+
+function accountData() {
+  return {
+    items,
+    moods,
+    journals,
+    customTags,
+    schemaVersion: 1
+  };
+}
+
+function applyAccountData(data) {
+  if (!data) return;
+  isApplyingCloudData = true;
+  items = normalizeItems(Array.isArray(data.items) ? data.items : []);
+  moods = data.moods && typeof data.moods === "object" ? data.moods : {};
+  journals = Array.isArray(data.journals) ? data.journals.map(normalizeJournalEntry).filter(Boolean) : [];
+  customTags = Array.isArray(data.customTags) ? data.customTags.map(normalizeCustomTag).filter(Boolean) : [];
+  saveItems();
+  saveMoods();
+  saveJournals();
+  saveCustomTags();
+  isApplyingCloudData = false;
+  renderTagOptions();
+  renderDateHeader();
+  render();
+}
+
+function queueCloudSave() {
+  if (isApplyingCloudData || !cloud.ready || !cloud.user) return;
+  window.clearTimeout(cloudSaveTimer);
+  cloudSaveTimer = window.setTimeout(() => {
+    saveCloudData().catch((error) => showAuthMessage(accountErrorMessage(error), true));
+  }, 450);
+}
+
+async function saveCloudData() {
+  if (!cloud.ready || !cloud.user) return;
+  await cloud.setDoc(cloud.doc(cloud.db, "users", cloud.user.uid, "ova", "state"), {
+    ...accountData(),
+    ownerId: cloud.user.uid,
+    updatedAt: cloud.serverTimestamp()
+  }, { merge: true });
+  showAuthMessage("Synced.", false);
+}
+
+async function loadCloudData() {
+  if (!cloud.ready || !cloud.user) return;
+  showAuthMessage("Loading your agenda...", false);
+  const snapshot = await cloud.getDoc(cloud.doc(cloud.db, "users", cloud.user.uid, "ova", "state"));
+  if (snapshot.exists()) {
+    applyAccountData(snapshot.data());
+    showAuthMessage("Synced from your account.", false);
+    return;
+  }
+  await saveCloudData();
+  showAuthMessage("Account ready. Local agenda copied in.", false);
+}
+
+function showAuthMessage(message, isError = false) {
+  authMessage.textContent = message || "";
+  accountPanel.classList.toggle("sync-error", Boolean(isError));
+}
+
+function renderAccountPanel() {
+  const hasConfig = hasCloudConfig();
+  accountPanel.classList.toggle("cloud-ready", hasConfig);
+  accountPanel.classList.toggle("signed-in", Boolean(cloud.user));
+  authForm.hidden = Boolean(cloud.user) || !hasConfig;
+  signedInActions.hidden = !cloud.user;
+
+  if (!hasConfig) {
+    accountState.textContent = "Local mode";
+    accountDetail.textContent = "Add Firebase config to enable sign-in.";
+    showAuthMessage("Your data is saved on this device for now.", false);
+    return;
+  }
+
+  if (!cloud.ready) {
+    accountState.textContent = "Account";
+    accountDetail.textContent = "Preparing sign-in...";
+    return;
+  }
+
+  if (cloud.user) {
+    accountState.textContent = "Signed in";
+    accountDetail.textContent = cloud.user.email || "Account connected";
+    return;
+  }
+
+  accountState.textContent = "Account";
+  accountDetail.textContent = "Sign in to use this agenda anywhere.";
+  showAuthMessage("", false);
+}
+
+async function initializeCloud() {
+  renderAccountPanel();
+  if (!hasCloudConfig()) return;
+
+  try {
+    const version = "12.16.0";
+    const firebaseApp = await import(`https://www.gstatic.com/firebasejs/${version}/firebase-app.js`);
+    const firebaseAuth = await import(`https://www.gstatic.com/firebasejs/${version}/firebase-auth.js`);
+    const firebaseFirestore = await import(`https://www.gstatic.com/firebasejs/${version}/firebase-firestore.js`);
+    const app = firebaseApp.initializeApp(window.OVA_FIREBASE_CONFIG);
+    cloud = {
+      ready: true,
+      user: null,
+      auth: firebaseAuth.getAuth(app),
+      db: firebaseFirestore.getFirestore(app),
+      onAuthStateChanged: firebaseAuth.onAuthStateChanged,
+      createUserWithEmailAndPassword: firebaseAuth.createUserWithEmailAndPassword,
+      signInWithEmailAndPassword: firebaseAuth.signInWithEmailAndPassword,
+      signOut: firebaseAuth.signOut,
+      doc: firebaseFirestore.doc,
+      getDoc: firebaseFirestore.getDoc,
+      setDoc: firebaseFirestore.setDoc,
+      serverTimestamp: firebaseFirestore.serverTimestamp
+    };
+
+    cloud.onAuthStateChanged(cloud.auth, async (user) => {
+      cloud.user = user;
+      renderAccountPanel();
+      if (!user) return;
+      try {
+        await loadCloudData();
+      } catch (error) {
+        showAuthMessage(accountErrorMessage(error), true);
+      }
+    });
+  } catch (error) {
+    cloud = { ready: false, user: null };
+    renderAccountPanel();
+    showAuthMessage("Sign-in could not load. Local mode still works.", true);
+  }
+}
+
+function authCredentials() {
+  return {
+    email: authEmailInput.value.trim(),
+    password: authPasswordInput.value
+  };
+}
+
+async function signIn() {
+  if (!cloud.ready) return;
+  const { email, password } = authCredentials();
+  if (!email || !password) {
+    showAuthMessage("Enter email and password.", true);
+    return;
+  }
+  showAuthMessage("Signing in...", false);
+  try {
+    await cloud.signInWithEmailAndPassword(cloud.auth, email, password);
+    authPasswordInput.value = "";
+  } catch (error) {
+    showAuthMessage(accountErrorMessage(error), true);
+  }
+}
+
+async function createAccount() {
+  if (!cloud.ready) return;
+  const { email, password } = authCredentials();
+  if (!email || password.length < 6) {
+    showAuthMessage("Use an email and 6+ character password.", true);
+    return;
+  }
+  showAuthMessage("Creating account...", false);
+  try {
+    await cloud.createUserWithEmailAndPassword(cloud.auth, email, password);
+    authPasswordInput.value = "";
+  } catch (error) {
+    showAuthMessage(accountErrorMessage(error), true);
+  }
+}
+
+async function signOutAccount() {
+  if (!cloud.ready) return;
+  try {
+    await cloud.signOut(cloud.auth);
+    showAuthMessage("Signed out. Local copy remains here.", false);
+  } catch (error) {
+    showAuthMessage(accountErrorMessage(error), true);
+  }
+}
+
+function accountErrorMessage(error) {
+  const code = error?.code || "";
+  if (code.includes("invalid-credential") || code.includes("wrong-password")) return "Email or password did not match.";
+  if (code.includes("email-already-in-use")) return "That email already has an account.";
+  if (code.includes("weak-password")) return "Password should be at least 6 characters.";
+  if (code.includes("permission-denied")) return "Check the Firestore rules for this project.";
+  if (code.includes("unauthorized-domain")) return "Add this website domain in Firebase Authentication settings.";
+  return "Account sync had a problem. Local data is still safe.";
 }
 
 function formatDate(dateKey) {
@@ -1544,6 +1763,16 @@ clearDoneButton.addEventListener("click", clearDone);
 toggleOngoingListButton.addEventListener("click", () => {
   showOngoingInList = !showOngoingInList;
   renderList();
+});
+signInButton.addEventListener("click", signIn);
+createAccountButton.addEventListener("click", createAccount);
+syncNowButton.addEventListener("click", () => {
+  saveCloudData().catch((error) => showAuthMessage(accountErrorMessage(error), true));
+});
+signOutButton.addEventListener("click", signOutAccount);
+authForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+  signIn();
 });
 urgentInput.addEventListener("click", () => {
   const isPressed = urgentInput.getAttribute("aria-pressed") === "true";

@@ -1,22 +1,30 @@
 # The Ova App Product Setup
 
-This app is currently local-only:
+This app can run in two modes:
 
-- It runs by opening `index.html` in a browser.
-- It stores agenda entries, moods, journal notes, follow-ups, and custom tags in that browser's local storage.
-- No server, account, install step, or cloud database is required.
+- Local mode: open `index.html`; data stays in browser storage.
+- Account mode: sign in with Firebase; data syncs through Firestore.
 
-## Sharing With Friends
+## Turn On Account Mode
 
-Friends can clone or download the GitHub repo and open `index.html` locally. Their data will be separate from yours because browser local storage is device/browser-specific.
+1. Create a Firebase project.
+2. Enable Authentication with Email/Password.
+3. Create a Cloud Firestore database.
+4. Publish the rules in `firestore.rules`.
+5. Copy the values from your Firebase web app config into `firebase-config.js`.
+6. Host `index.html`, `app.js`, `styles.css`, and `firebase-config.js` on a static host.
 
 ## Data Model
 
-Local storage keeps:
+The app stores:
 
 - `items`
 - `moods`
 - `journals`
 - `customTags`
 
-This can later be moved to a real account system when you are ready for access across devices, collaboration, sharing, history, or larger-scale querying.
+In account mode, those fields live at:
+
+```text
+users/{uid}/ova/state
+```
