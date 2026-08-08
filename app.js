@@ -549,14 +549,16 @@ function isRepeating(item) {
 
 function filteredItems() {
   const sorted = [...items].sort(compareAgendaItems);
-  const listItems = showOngoingInList
-    ? sorted
-    : sorted.filter((item) => item.reminderType !== "ongoing");
+  if (showOngoingInList) {
+    return sorted.filter((item) => !item.done && item.reminderType === "ongoing");
+  }
+
+  const listItems = sorted.filter((item) => item.reminderType !== "ongoing");
 
   if (currentFilter === "today") return listItems.filter((item) => !item.done && isToday(item));
   if (currentFilter === "upcoming") return listItems.filter((item) => !item.done && isUpcoming(item));
   if (currentFilter === "done") return listItems.filter((item) => item.done);
-  return listItems;
+  return listItems.filter((item) => !item.done);
 }
 
 function compareAgendaItems(a, b) {
@@ -1033,17 +1035,7 @@ function completeItem(id) {
   items = items.map((item) => {
     if (item.id !== id) return item;
     if (item.reminderType === "ongoing" && !item.done) {
-      return {
-        ...item,
-        followUps: [
-          ...item.followUps,
-          {
-            id: crypto.randomUUID(),
-            text: "Completed ongoing check-in.",
-            createdAt: new Date().toISOString()
-          }
-        ]
-      };
+      return { ...item, done: true };
     }
     if (isRepeating(item) && !item.done) {
       const next = nextDueDate(item);
@@ -1425,9 +1417,10 @@ function summarizeMoods() {
     .filter((entry) => !Number.isNaN(entry.score))
     .sort((a, b) => a.date.localeCompare(b.date));
   const currentYear = String(new Date().getFullYear());
-  const currentMonth = todayKey().slice(0, 7);
+  const recentCutoff = startOfDay(new Date());
+  recentCutoff.setDate(recentCutoff.getDate() - 29);
   const yearly = entries.filter((entry) => entry.date.startsWith(currentYear));
-  const monthly = entries.filter((entry) => entry.date.startsWith(currentMonth));
+  const monthly = entries.filter((entry) => startOfDay(new Date(`${entry.date}T00:00`)) >= recentCutoff);
   const yearlyMonthly = averageMoodsByMonth(yearly);
   const average = yearly.length
     ? yearly.reduce((sum, entry) => sum + entry.score, 0) / yearly.length
@@ -1486,7 +1479,7 @@ function moodTrajectoryBlock({ monthly, yearly, yearlyMonthly, monthAverage, ave
   return `
     <section class="summary-block mood-block">
       <h3 class="mood-heading" title="Hidden journal log">Mood trajectory</h3>
-      <p class="mood-chart-label">This month</p>
+      <p class="mood-chart-label">Recent 30 days</p>
       <div class="mood-chart" aria-label="Monthly mood trajectory from -6 to 6">
         ${monthChart}
       </div>

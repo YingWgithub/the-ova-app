@@ -105,8 +105,7 @@ button {
 }
 
 .tagline {
-  display: grid;
-  gap: 4px;
+  display: block;
   max-width: 680px;
   margin-bottom: 0;
   color: var(--blue-deep);
@@ -117,13 +116,14 @@ button {
 }
 
 .tagline cite {
-  color: var(--muted);
-  font-size: 0.82rem;
-  font-style: normal;
+  color: inherit;
+  font-size: 0.82em;
+  font-style: inherit;
+  margin-left: 6px;
 }
 
 .eyebrow {
-  margin: 0 0 8px;
+  margin: 0 0 2px;
   color: currentColor;
   font-size: 0.77rem;
   font-weight: 650;
@@ -942,73 +942,15 @@ select:focus {
   border-color: rgba(215, 25, 32, 0.42);
 }
 
-.assistant-art {
-  position: relative;
-  height: 48px;
-  border-radius: 8px;
-  background:
-    linear-gradient(135deg, rgba(79, 158, 219, 0.17), rgba(121, 196, 232, 0.12)),
-    #f8fbfa;
-  overflow: hidden;
-}
-
-.orbit {
-  position: absolute;
-  inset: 18px 44px;
-  border: 2px solid rgba(79, 158, 219, 0.32);
-  border-radius: 50%;
-  transform: rotate(-8deg);
-}
-
-.orbit::before,
-.orbit::after {
-  content: "";
-  position: absolute;
-  width: 13px;
-  height: 13px;
-  border-radius: 50%;
-  background: var(--blue);
-}
-
-.orbit::before {
-  top: 12px;
-  left: 18px;
-}
-
-.orbit::after {
-  right: 24px;
-  bottom: 8px;
-  background: var(--lavender);
-}
-
-.note-stack {
-  position: absolute;
-  right: 32px;
-  bottom: 17px;
-  display: grid;
-  gap: 6px;
-  width: 104px;
-}
-
-.note-stack span {
-  height: 14px;
-  border-radius: 5px;
-  background: #fff;
-  box-shadow: 0 10px 30px rgba(31, 47, 54, 0.12);
-}
-
-.note-stack span:nth-child(2) {
-  width: 82%;
-}
-
-.note-stack span:nth-child(3) {
-  width: 66%;
-}
-
 .assistant-heading h2 {
   margin-bottom: 0;
   font-size: 1.55rem;
   font-weight: 650;
+}
+
+.assistant-heading {
+  margin-top: 10px;
+  margin-bottom: -4px;
 }
 
 .ai-output {
