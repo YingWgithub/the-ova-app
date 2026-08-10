@@ -915,11 +915,36 @@ function renderItemMeta(container, item) {
     ? `Entered ${formatDate(item.entryDate)}. Ongoing.`
     : `Entered ${formatDate(item.entryDate)}. Due ${formatDueDateTime(item)}.`;
 
+  const scheduleEditor = editableSchedule(item);
   const tags = document.createElement("span");
   tags.className = "meta-tags";
   renderTags(tags, item.tags);
 
-  container.append(text, tags);
+  container.append(text);
+  if (scheduleEditor) container.append(scheduleEditor);
+  container.append(tags);
+}
+
+function editableSchedule(item) {
+  if (item.reminderType === "ongoing" && !item.dueDate) return null;
+
+  const wrapper = document.createElement("span");
+  wrapper.className = "schedule-editor";
+
+  const dateInput = document.createElement("input");
+  dateInput.type = "date";
+  dateInput.value = item.dueDate || "";
+  dateInput.ariaLabel = "Edit due date";
+  dateInput.addEventListener("change", () => updateItemSchedule(item.id, dateInput.value, timeInput.value));
+
+  const timeInput = document.createElement("input");
+  timeInput.type = "time";
+  timeInput.value = item.dueTime || "";
+  timeInput.ariaLabel = "Edit due time";
+  timeInput.addEventListener("change", () => updateItemSchedule(item.id, dateInput.value, timeInput.value));
+
+  wrapper.append(dateInput, timeInput);
+  return wrapper;
 }
 
 function renderTags(container, tags) {
@@ -1027,6 +1052,19 @@ function addItem(event) {
 function updateSummaryTitle(id, value) {
   const summaryTitle = value.trim() || "Untitled task";
   items = items.map((item) => item.id === id ? { ...item, title: summaryTitle, summaryTitle, titleEdited: true } : item);
+  saveItems();
+  render();
+}
+
+function updateItemSchedule(id, dueDate, dueTime) {
+  items = items.map((item) => {
+    if (item.id !== id) return item;
+    return {
+      ...item,
+      dueDate,
+      dueTime: dueDate ? dueTime : ""
+    };
+  });
   saveItems();
   render();
 }
