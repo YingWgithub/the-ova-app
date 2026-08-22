@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>the Ova app</title>
-    <link rel="stylesheet" href="styles.css?v=editable-schedule-1" />
+    <link rel="stylesheet" href="styles.css?v=work-todo-compact-2" />
   </head>
   <body>
     <main class="app-shell">
@@ -131,6 +131,18 @@
             </div>
             <p id="authMessage" class="auth-message" aria-live="polite"></p>
           </section>
+          <section class="work-todo-panel" aria-label="Work todo">
+            <div class="work-todo-heading">
+              <h3>Work todo</h3>
+              <span id="workTodoCount"></span>
+            </div>
+            <form id="workTodoForm" class="work-todo-form">
+              <input id="workTodoText" type="text" autocomplete="off" placeholder="Specific work item..." aria-label="Work todo item" required />
+              <input id="workTodoDue" type="date" aria-label="Work todo due date" />
+              <button class="ghost-button" type="submit" aria-label="Add work todo">+</button>
+            </form>
+            <div id="workTodoList" class="work-todo-list" aria-live="polite"></div>
+          </section>
           <div class="assistant-heading">
             <p class="eyebrow">AI assistant</p>
           </div>
@@ -161,7 +173,7 @@
       </li>
     </template>
 
-    <script src="firebase-config.js?v=editable-schedule-1"></script>
-    <script src="app.js?v=editable-schedule-1"></script>
+    <script src="firebase-config.js?v=work-todo-compact-2"></script>
+    <script src="app.js?v=work-todo-compact-2"></script>
   </body>
 </html>

@@ -22,6 +22,7 @@ The app stores:
 - `moods`
 - `journals`
 - `customTags`
+- `workTodos`
 
 In account mode, those fields live at:
 

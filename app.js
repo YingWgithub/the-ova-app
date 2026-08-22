@@ -2,6 +2,7 @@ const STORAGE_KEY = "personal-agenda-items";
 const MOOD_STORAGE_KEY = "ova-mood-entries";
 const JOURNAL_STORAGE_KEY = "ova-moment-journal";
 const CUSTOM_TAG_STORAGE_KEY = "ova-custom-tags";
+const WORK_TODO_STORAGE_KEY = "ova-work-todos";
 const DEFAULT_CUSTOM_TAG_COLOR = "#4f9edb";
 
 const DEFAULT_TAGS = [
@@ -124,11 +125,17 @@ const signedInActions = document.querySelector("#signedInActions");
 const syncNowButton = document.querySelector("#syncNowButton");
 const signOutButton = document.querySelector("#signOutButton");
 const authMessage = document.querySelector("#authMessage");
+const workTodoForm = document.querySelector("#workTodoForm");
+const workTodoTextInput = document.querySelector("#workTodoText");
+const workTodoDueInput = document.querySelector("#workTodoDue");
+const workTodoList = document.querySelector("#workTodoList");
+const workTodoCount = document.querySelector("#workTodoCount");
 
 let items = normalizeItems(loadItems());
 let moods = loadMoods();
 let journals = loadJournals();
 let customTags = loadCustomTags();
+let workTodos = normalizeWorkTodos(loadWorkTodos());
 let selectedCustomTagColor = DEFAULT_CUSTOM_TAG_COLOR;
 let currentFilter = "all";
 let showOngoingInList = false;
@@ -191,6 +198,14 @@ function loadCustomTags() {
   }
 }
 
+function loadWorkTodos() {
+  try {
+    return JSON.parse(localStorage.getItem(WORK_TODO_STORAGE_KEY)) || [];
+  } catch {
+    return [];
+  }
+}
+
 function saveCustomTags() {
   localStorage.setItem(CUSTOM_TAG_STORAGE_KEY, JSON.stringify(customTags));
   queueCloudSave();
@@ -220,6 +235,22 @@ function normalizeJournalEntry(value) {
     id: value.id || crypto.randomUUID(),
     text,
     createdAt
+  };
+}
+
+function normalizeWorkTodos(rawTodos) {
+  return rawTodos.map(normalizeWorkTodo).filter(Boolean);
+}
+
+function normalizeWorkTodo(value) {
+  const text = String(value?.text || "").trim();
+  if (!text) return null;
+  return {
+    id: value.id || crypto.randomUUID(),
+    text,
+    dueDate: value.dueDate || "",
+    done: Boolean(value.done),
+    createdAt: value.createdAt || new Date().toISOString()
   };
 }
 
@@ -300,6 +331,11 @@ function saveJournals() {
   queueCloudSave();
 }
 
+function saveWorkTodos() {
+  localStorage.setItem(WORK_TODO_STORAGE_KEY, JSON.stringify(workTodos));
+  queueCloudSave();
+}
+
 function hasCloudConfig() {
   const config = window.OVA_FIREBASE_CONFIG;
   return Boolean(config && config.apiKey && config.projectId && config.appId);
@@ -311,6 +347,7 @@ function accountData() {
     moods,
     journals,
     customTags,
+    workTodos,
     schemaVersion: 1
   };
 }
@@ -322,10 +359,12 @@ function applyAccountData(data) {
   moods = data.moods && typeof data.moods === "object" ? data.moods : {};
   journals = Array.isArray(data.journals) ? data.journals.map(normalizeJournalEntry).filter(Boolean) : [];
   customTags = Array.isArray(data.customTags) ? data.customTags.map(normalizeCustomTag).filter(Boolean) : [];
+  workTodos = normalizeWorkTodos(Array.isArray(data.workTodos) ? data.workTodos : []);
   saveItems();
   saveMoods();
   saveJournals();
   saveCustomTags();
+  saveWorkTodos();
   isApplyingCloudData = false;
   renderTagOptions();
   renderDateHeader();
@@ -1778,7 +1817,105 @@ function escapeHtml(value) {
 
 function render() {
   renderList();
+  renderWorkTodos();
   generateLocalSummary();
+}
+
+function addWorkTodo(event) {
+  event.preventDefault();
+  const text = workTodoTextInput.value.trim();
+  if (!text) return;
+  workTodos = [
+    {
+      id: crypto.randomUUID(),
+      text,
+      dueDate: workTodoDueInput.value,
+      done: false,
+      createdAt: new Date().toISOString()
+    },
+    ...workTodos
+  ];
+  saveWorkTodos();
+  workTodoForm.reset();
+  renderWorkTodos();
+}
+
+function renderWorkTodos() {
+  if (!workTodoList) return;
+  const sorted = [...workTodos].sort(compareWorkTodos);
+  const activeCount = sorted.filter((todo) => !todo.done).length;
+  workTodoCount.textContent = activeCount ? `${activeCount} open` : "clear";
+
+  if (!sorted.length) {
+    workTodoList.innerHTML = `<p class="work-todo-empty">No work todos yet.</p>`;
+    return;
+  }
+
+  workTodoList.innerHTML = "";
+  sorted.forEach((todo) => {
+    const row = document.createElement("div");
+    row.className = `work-todo-item${todo.done ? " done" : ""}`;
+
+    const doneButton = document.createElement("button");
+    doneButton.className = "work-todo-check";
+    doneButton.type = "button";
+    doneButton.ariaLabel = todo.done ? "Mark work todo open" : "Mark work todo done";
+    doneButton.textContent = todo.done ? "✓" : "";
+    doneButton.addEventListener("click", () => toggleWorkTodo(todo.id));
+
+    const textInput = document.createElement("input");
+    textInput.className = "work-todo-text";
+    textInput.type = "text";
+    textInput.value = todo.text;
+    textInput.ariaLabel = "Edit work todo";
+    textInput.addEventListener("change", () => updateWorkTodo(todo.id, { text: textInput.value }));
+    textInput.addEventListener("blur", () => updateWorkTodo(todo.id, { text: textInput.value }));
+
+    const dueInput = document.createElement("input");
+    dueInput.className = "work-todo-due";
+    dueInput.type = "date";
+    dueInput.value = todo.dueDate || "";
+    dueInput.ariaLabel = "Edit work todo due date";
+    dueInput.addEventListener("change", () => updateWorkTodo(todo.id, { dueDate: dueInput.value }));
+
+    const deleteButton = document.createElement("button");
+    deleteButton.className = "work-todo-delete";
+    deleteButton.type = "button";
+    deleteButton.ariaLabel = "Delete work todo";
+    deleteButton.textContent = "x";
+    deleteButton.addEventListener("click", () => deleteWorkTodo(todo.id));
+
+    row.append(doneButton, textInput, dueInput, deleteButton);
+    workTodoList.appendChild(row);
+  });
+}
+
+function compareWorkTodos(a, b) {
+  if (a.done !== b.done) return a.done ? 1 : -1;
+  const aTime = a.dueDate ? new Date(`${a.dueDate}T00:00`).getTime() : Number.POSITIVE_INFINITY;
+  const bTime = b.dueDate ? new Date(`${b.dueDate}T00:00`).getTime() : Number.POSITIVE_INFINITY;
+  if (aTime !== bTime) return aTime - bTime;
+  return new Date(b.createdAt) - new Date(a.createdAt);
+}
+
+function updateWorkTodo(id, changes) {
+  workTodos = workTodos
+    .map((todo) => todo.id === id ? normalizeWorkTodo({ ...todo, ...changes }) : todo)
+    .filter(Boolean);
+  saveWorkTodos();
+  renderWorkTodos();
+}
+
+function toggleWorkTodo(id) {
+  workTodos = workTodos.map((todo) => todo.id === id ? { ...todo, done: !todo.done } : todo);
+  saveWorkTodos();
+  renderWorkTodos();
+}
+
+function deleteWorkTodo(id) {
+  workTodos = workTodos.filter((todo) => todo.id !== id);
+  saveWorkTodos();
+  renderWorkTodos();
 }
 
 filterButtons.forEach((button) => {
@@ -1790,6 +1927,7 @@ filterButtons.forEach((button) => {
 });
 
 form.addEventListener("submit", addItem);
+workTodoForm.addEventListener("submit", addWorkTodo);
 clearDoneButton.addEventListener("click", clearDone);
 toggleOngoingListButton.addEventListener("click", () => {
   showOngoingInList = !showOngoingInList;

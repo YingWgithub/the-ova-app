@@ -32,6 +32,7 @@ To use it from any laptop:
 - Set due date, due time, reminder type, tags, and urgent marker.
 - Use one-time, daily, weekly, monthly, or continuously ongoing reminders.
 - Add follow-ups with timestamps.
+- Keep a compact work-only todo list with editable due dates.
 - Keep completed items at the bottom.
 - View summary, suggested focus, ongoing items, calendar, tag bars, keyword cloud, and mood trajectory.
 - Store locally by default, or sync to your account after Firebase setup.
