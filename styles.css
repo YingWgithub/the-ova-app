@@ -603,16 +603,26 @@ select:focus {
 }
 
 .original-entry {
+  width: 100%;
+  min-height: 1.2em;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  background: transparent;
   margin: 0 0 2px;
   color: #8793a5;
   font-size: 0.72rem;
   font-style: italic;
   line-height: 1.12;
   overflow-wrap: anywhere;
-  display: -webkit-box;
-  -webkit-line-clamp: 1;
-  -webkit-box-orient: vertical;
+  padding: 0 3px;
+  resize: none;
   overflow: hidden;
+}
+
+.original-entry:hover,
+.original-entry:focus {
+  border-color: rgba(151, 170, 185, 0.28);
+  background: rgba(255, 255, 255, 0.48);
 }
 
 .status-pills,
@@ -1150,38 +1160,29 @@ select:focus {
   background: #fbfcfd;
 }
 
-.suggested-focus-block {
-  border-top: 3px solid #c4ced8;
-  background: #ffffff;
-}
-
 .ongoing-block {
   border-top: 3px solid #d2d8df;
   background: #fbfbfc;
 }
 
 .summary-overview-block,
-.suggested-focus-block,
 .ongoing-block {
   padding: 7px 8px;
 }
 
 .summary-overview-block h3,
-.suggested-focus-block h3,
 .ongoing-block h3 {
   margin-bottom: 3px;
   font-size: 0.76rem;
 }
 
 .summary-overview-block p,
-.suggested-focus-block li,
 .ongoing-block li,
 .ongoing-more {
   font-size: 0.74rem;
   line-height: 1.3;
 }
 
-.suggested-focus-block ul,
 .ongoing-block ul {
   gap: 4px;
 }
@@ -1344,6 +1345,139 @@ button.calendar-cell {
   font-size: 0.68rem;
 }
 
+.shopping-block {
+  border: 0;
+  border-top: 1px solid rgba(102, 117, 139, 0.28);
+  border-bottom: 1px solid rgba(102, 117, 139, 0.18);
+  border-radius: 0;
+  background: transparent;
+  padding: 9px 2px 10px;
+}
+
+.shopping-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 5px;
+}
+
+.shopping-heading h3 {
+  margin-bottom: 0;
+  color: var(--ink);
+  font-size: 0.76rem;
+  font-weight: 650;
+}
+
+.shopping-history-toggle {
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font-size: 0.64rem;
+  font-weight: 650;
+  padding: 0;
+}
+
+.shopping-history-toggle.active {
+  color: var(--blue-deep);
+}
+
+.shopping-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 24px;
+  gap: 4px;
+  margin-bottom: 4px;
+}
+
+.shopping-form input {
+  min-height: 25px;
+  border-color: rgba(151, 170, 185, 0.22);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.36);
+  padding: 3px 7px;
+  font-size: 0.68rem;
+}
+
+.shopping-form button {
+  min-height: 25px;
+  border: 1px solid rgba(79, 158, 219, 0.22);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.2);
+  color: var(--blue-deep);
+  font-size: 0.8rem;
+}
+
+.shopping-list,
+.shopping-history {
+  display: grid;
+  gap: 0;
+}
+
+.shopping-history {
+  margin-top: 4px;
+  border-top: 1px solid rgba(151, 170, 185, 0.18);
+  padding-top: 4px;
+}
+
+.shopping-item {
+  display: grid;
+  grid-template-columns: 14px minmax(0, 1fr) 14px;
+  align-items: center;
+  gap: 5px;
+  min-height: 23px;
+  border-bottom: 1px solid rgba(151, 170, 185, 0.14);
+  color: #43515a;
+  font-size: 0.7rem;
+  line-height: 1.2;
+}
+
+.shopping-item:last-child {
+  border-bottom: 0;
+}
+
+.shopping-check {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 13px;
+  height: 13px;
+  border: 1px solid rgba(73, 188, 167, 0.5);
+  border-radius: 999px;
+  background: transparent;
+  color: #fff;
+  font-size: 0.55rem;
+  line-height: 1;
+  padding: 0;
+}
+
+.shopping-item.done {
+  color: var(--muted);
+}
+
+.shopping-item.done .shopping-check {
+  border-color: #49bca7;
+  background: #49bca7;
+}
+
+.shopping-delete {
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font-size: 0.62rem;
+  opacity: 0.45;
+  padding: 0;
+}
+
+.shopping-item:hover .shopping-delete {
+  opacity: 1;
+}
+
+.shopping-empty {
+  margin-bottom: 0;
+  color: var(--muted);
+  font-size: 0.68rem;
+}
+
 .summary-block p,
 .summary-block li {
   color: #43515a;
@@ -1464,9 +1598,7 @@ button.calendar-cell {
   border-radius: 8px;
   background: linear-gradient(180deg, #f7fbff, #eef7ff);
   padding: 5px 6px;
-  overflow-x: auto;
-  overflow-y: hidden;
-  overscroll-behavior-x: contain;
+  overflow: hidden;
 }
 
 .mood-chart-label {
@@ -1478,7 +1610,7 @@ button.calendar-cell {
 
 .mood-chart svg {
   display: block;
-  width: max(100%, calc(var(--mood-chart-width, 220) * 1px));
+  width: 100%;
   height: 56px;
 }
 

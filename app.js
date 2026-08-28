@@ -3,6 +3,7 @@ const MOOD_STORAGE_KEY = "ova-mood-entries";
 const JOURNAL_STORAGE_KEY = "ova-moment-journal";
 const CUSTOM_TAG_STORAGE_KEY = "ova-custom-tags";
 const WORK_TODO_STORAGE_KEY = "ova-work-todos";
+const SHOPPING_STORAGE_KEY = "ova-shopping-list";
 const DEFAULT_CUSTOM_TAG_COLOR = "#4f9edb";
 
 const DEFAULT_TAGS = [
@@ -136,16 +137,20 @@ let moods = loadMoods();
 let journals = loadJournals();
 let customTags = loadCustomTags();
 let workTodos = normalizeWorkTodos(loadWorkTodos());
+let shoppingItems = normalizeShoppingItems(loadShoppingItems());
 let selectedCustomTagColor = DEFAULT_CUSTOM_TAG_COLOR;
 let currentFilter = "all";
 let showOngoingInList = false;
 let selectedKeyword = "";
 let selectedCalendarDate = "";
+let showShoppingHistory = false;
 let showJournalLog = false;
 let todayCardClickCount = 0;
 let todayCardClickTimer = 0;
 let moodHeadingClickCount = 0;
 let moodHeadingClickTimer = 0;
+let titleSaveTimers = {};
+let originalEntrySaveTimers = {};
 let cloud = { ready: false, user: null };
 let cloudSaveTimer = 0;
 let isApplyingCloudData = false;
@@ -206,6 +211,14 @@ function loadWorkTodos() {
   }
 }
 
+function loadShoppingItems() {
+  try {
+    return JSON.parse(localStorage.getItem(SHOPPING_STORAGE_KEY)) || [];
+  } catch {
+    return [];
+  }
+}
+
 function saveCustomTags() {
   localStorage.setItem(CUSTOM_TAG_STORAGE_KEY, JSON.stringify(customTags));
   queueCloudSave();
@@ -251,6 +264,22 @@ function normalizeWorkTodo(value) {
     dueDate: value.dueDate || "",
     done: Boolean(value.done),
     createdAt: value.createdAt || new Date().toISOString()
+  };
+}
+
+function normalizeShoppingItems(rawItems) {
+  return rawItems.map(normalizeShoppingItem).filter(Boolean);
+}
+
+function normalizeShoppingItem(value) {
+  const text = String(value?.text || "").trim();
+  if (!text) return null;
+  return {
+    id: value.id || crypto.randomUUID(),
+    text,
+    done: Boolean(value.done),
+    createdAt: value.createdAt || new Date().toISOString(),
+    doneAt: value.doneAt || ""
   };
 }
 
@@ -336,6 +365,11 @@ function saveWorkTodos() {
   queueCloudSave();
 }
 
+function saveShoppingItems() {
+  localStorage.setItem(SHOPPING_STORAGE_KEY, JSON.stringify(shoppingItems));
+  queueCloudSave();
+}
+
 function hasCloudConfig() {
   const config = window.OVA_FIREBASE_CONFIG;
   return Boolean(config && config.apiKey && config.projectId && config.appId);
@@ -348,6 +382,7 @@ function accountData() {
     journals,
     customTags,
     workTodos,
+    shoppingItems,
     schemaVersion: 1
   };
 }
@@ -360,11 +395,13 @@ function applyAccountData(data) {
   journals = Array.isArray(data.journals) ? data.journals.map(normalizeJournalEntry).filter(Boolean) : [];
   customTags = Array.isArray(data.customTags) ? data.customTags.map(normalizeCustomTag).filter(Boolean) : [];
   workTodos = normalizeWorkTodos(Array.isArray(data.workTodos) ? data.workTodos : []);
+  shoppingItems = normalizeShoppingItems(Array.isArray(data.shoppingItems) ? data.shoppingItems : []);
   saveItems();
   saveMoods();
   saveJournals();
   saveCustomTags();
   saveWorkTodos();
+  saveShoppingItems();
   isApplyingCloudData = false;
   renderTagOptions();
   renderDateHeader();
@@ -400,6 +437,30 @@ async function loadCloudData() {
   }
   await saveCloudData();
   showAuthMessage("Account ready. Local agenda copied in.", false);
+}
+
+async function syncNow() {
+  if (!cloud.ready) {
+    showAuthMessage("Sign-in is still loading.", true);
+    return;
+  }
+  if (!cloud.user) {
+    showAuthMessage("Sign in before syncing.", true);
+    return;
+  }
+
+  window.clearTimeout(cloudSaveTimer);
+  syncNowButton.disabled = true;
+  showAuthMessage("Syncing...", false);
+  try {
+    await saveCloudData();
+    await loadCloudData();
+    showAuthMessage("Synced just now.", false);
+  } catch (error) {
+    showAuthMessage(accountErrorMessage(error), true);
+  } finally {
+    syncNowButton.disabled = false;
+  }
 }
 
 function showAuthMessage(message, isError = false) {
@@ -889,17 +950,34 @@ function renderList() {
     row.dataset.id = item.id;
     const titleInput = row.querySelector(".summary-title-input");
     titleInput.value = item.summaryTitle || item.title;
-    titleInput.addEventListener("change", () => updateSummaryTitle(item.id, titleInput.value));
-    titleInput.addEventListener("blur", () => updateSummaryTitle(item.id, titleInput.value));
-    titleInput.addEventListener("input", () => resizeSummaryTitle(titleInput));
+    titleInput.addEventListener("input", () => {
+      resizeSummaryTitle(titleInput);
+      queueSummaryTitleSave(item.id, titleInput.value);
+    });
+    titleInput.addEventListener("change", () => updateSummaryTitle(item.id, titleInput.value, false));
+    titleInput.addEventListener("blur", () => updateSummaryTitle(item.id, titleInput.value, true));
     titleInput.addEventListener("keydown", (event) => {
       if (event.key === "Enter") {
         event.preventDefault();
-        updateSummaryTitle(item.id, titleInput.value);
+        updateSummaryTitle(item.id, titleInput.value, true);
         titleInput.blur();
       }
     });
-    row.querySelector(".original-entry").textContent = item.originalEntry || item.title;
+    const originalInput = row.querySelector(".original-entry");
+    originalInput.value = item.originalEntry || item.title;
+    originalInput.addEventListener("input", () => {
+      resizeSummaryTitle(originalInput);
+      queueOriginalEntrySave(item.id, originalInput.value);
+    });
+    originalInput.addEventListener("change", () => updateOriginalEntry(item.id, originalInput.value, false));
+    originalInput.addEventListener("blur", () => updateOriginalEntry(item.id, originalInput.value, true));
+    originalInput.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        updateOriginalEntry(item.id, originalInput.value, true);
+        originalInput.blur();
+      }
+    });
     renderItemMeta(row.querySelector(".item-meta"), item);
 
     renderStatusPills(row.querySelector(".status-pills"), item);
@@ -916,6 +994,7 @@ function renderList() {
     row.querySelector(".delete-button").addEventListener("click", () => deleteItem(item.id));
     list.appendChild(row);
     resizeSummaryTitle(titleInput);
+    resizeSummaryTitle(originalInput);
   });
 }
 
@@ -1088,11 +1167,40 @@ function addItem(event) {
   render();
 }
 
-function updateSummaryTitle(id, value) {
+function queueSummaryTitleSave(id, value) {
+  window.clearTimeout(titleSaveTimers[id]);
+  titleSaveTimers[id] = window.setTimeout(() => updateSummaryTitle(id, value, false), 500);
+}
+
+function updateSummaryTitle(id, value, shouldRender = true) {
+  window.clearTimeout(titleSaveTimers[id]);
   const summaryTitle = value.trim() || "Untitled task";
   items = items.map((item) => item.id === id ? { ...item, title: summaryTitle, summaryTitle, titleEdited: true } : item);
   saveItems();
-  render();
+  if (shouldRender) render();
+}
+
+function queueOriginalEntrySave(id, value) {
+  window.clearTimeout(originalEntrySaveTimers[id]);
+  originalEntrySaveTimers[id] = window.setTimeout(() => updateOriginalEntry(id, value, false), 500);
+}
+
+function updateOriginalEntry(id, value, shouldRender = true) {
+  window.clearTimeout(originalEntrySaveTimers[id]);
+  const originalEntry = value.trim();
+  if (!originalEntry) return;
+  items = items.map((item) => {
+    if (item.id !== id) return item;
+    const summaryTitle = item.titleEdited ? item.summaryTitle : summarizeEntry(originalEntry);
+    return {
+      ...item,
+      originalEntry,
+      title: summaryTitle,
+      summaryTitle
+    };
+  });
+  saveItems();
+  if (shouldRender) render();
 }
 
 function updateItemSchedule(id, dueDate, dueTime) {
@@ -1198,9 +1306,7 @@ function generateLocalSummary() {
   const planned = active.filter((item) => item.reminderType !== "ongoing");
   const overdue = planned.filter(isOverdue);
   const today = planned.filter(isToday);
-  const urgent = planned.filter((item) => item.urgent);
   const repeating = planned.filter(isRepeating);
-  const nextThree = planned.slice(0, 3);
   const tagStats = summarizeTags(items);
   const keywordStats = summarizeKeywords(active);
   const moodStats = summarizeMoods();
@@ -1209,7 +1315,11 @@ function generateLocalSummary() {
     aiSummary.innerHTML = [
       summaryBlock("Nothing to summarize yet", "Add a few agenda items with due dates. Tags can be selected or inferred from the task.", "summary-overview-block")
     ].join("");
-    aiMetrics.innerHTML = moodTrajectoryBlock(moodStats);
+    aiMetrics.innerHTML = [
+      shoppingBlock(),
+      moodTrajectoryBlock(moodStats)
+    ].join("");
+    bindShoppingList();
     bindMoodJournalToggle();
     return;
   }
@@ -1218,18 +1328,14 @@ function generateLocalSummary() {
     ? `You have ${planned.length} planned item${planned.length === 1 ? "" : "s"}. ${today.length} ${today.length === 1 ? "is" : "are"} due today, ${overdue.length} ${overdue.length === 1 ? "is" : "are"} overdue, and ${repeating.length} ${repeating.length === 1 ? "is" : "are"} repeating.`
     : "No dated or scheduled items need attention right now.";
 
-  const focusItems = nextThree.length
-    ? nextThree.map((item) => `${item.summaryTitle || item.title} (${relativeTiming(item)}${item.urgent ? ", urgent" : ""}; ${item.tags.join(", ")})`)
-    : ["Review tomorrow's priorities or add the next thing that needs attention."];
-
   aiSummary.innerHTML = [
     summaryBlock("Summary", overview, "summary-overview-block"),
-    listBlock("Suggested focus", focusItems, "suggested-focus-block"),
     ongoingBlock(ongoing),
     calendarBlock(planned)
   ].join("");
 
   aiMetrics.innerHTML = [
+    shoppingBlock(),
     tagDistributionBlock(tagStats, items.length),
     keywordNetworkBlock(keywordStats),
     moodTrajectoryBlock(moodStats)
@@ -1237,6 +1343,7 @@ function generateLocalSummary() {
   bindKeywordCloud();
   bindMoodJournalToggle();
   bindCalendarDays();
+  bindShoppingList();
 }
 
 function summarizeTags(active) {
@@ -1488,16 +1595,62 @@ function calendarDayDetails(plannedItems) {
   `;
 }
 
+function shoppingBlock() {
+  const activeItems = shoppingItems
+    .filter((item) => !item.done)
+    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+  const historyItems = shoppingItems
+    .filter((item) => item.done)
+    .sort((a, b) => new Date(b.doneAt || b.createdAt) - new Date(a.doneAt || a.createdAt));
+  const activeRows = activeItems.length
+    ? activeItems.map((item) => shoppingItemRow(item)).join("")
+    : `<p class="shopping-empty">Nothing on the list.</p>`;
+  const historyRows = historyItems.length
+    ? historyItems.slice(0, 20).map((item) => shoppingItemRow(item, true)).join("")
+    : `<p class="shopping-empty">No checked items yet.</p>`;
+
+  return `
+    <section class="summary-block shopping-block">
+      <div class="shopping-heading">
+        <h3>Shopping list</h3>
+        <button class="shopping-history-toggle${showShoppingHistory ? " active" : ""}" type="button">${showShoppingHistory ? "Hide history" : "History"}</button>
+      </div>
+      <form class="shopping-form">
+        <input type="text" autocomplete="off" placeholder="Add item..." aria-label="Shopping item" required />
+        <button type="submit" aria-label="Add shopping item">+</button>
+      </form>
+      <div class="shopping-list">${activeRows}</div>
+      <div class="shopping-history" ${showShoppingHistory ? "" : "hidden"}>
+        ${historyRows}
+      </div>
+    </section>
+  `;
+}
+
+function shoppingItemRow(item, isHistory = false) {
+  return `
+    <div class="shopping-item${item.done ? " done" : ""}">
+      <button class="shopping-check" type="button" data-id="${escapeHtml(item.id)}" aria-label="${isHistory ? "Move shopping item back to list" : "Check shopping item"}">${item.done ? "✓" : ""}</button>
+      <span>${escapeHtml(item.text)}</span>
+      ${isHistory ? `<button class="shopping-delete" type="button" data-id="${escapeHtml(item.id)}" aria-label="Delete shopping history item">x</button>` : ""}
+    </div>
+  `;
+}
+
 function summarizeMoods() {
   const entries = Object.entries(moods)
     .map(([date, score]) => ({ date, score: Number(score) }))
     .filter((entry) => !Number.isNaN(entry.score))
     .sort((a, b) => a.date.localeCompare(b.date));
-  const currentYear = String(new Date().getFullYear());
-  const recentCutoff = startOfDay(new Date());
+  const today = startOfDay(new Date());
+  const currentYear = String(today.getFullYear());
+  const recentCutoff = startOfDay(today);
   recentCutoff.setDate(recentCutoff.getDate() - 29);
   const yearly = entries.filter((entry) => entry.date.startsWith(currentYear));
-  const monthly = entries.filter((entry) => startOfDay(new Date(`${entry.date}T00:00`)) >= recentCutoff);
+  const monthly = entries.filter((entry) => {
+    const entryDate = startOfDay(new Date(`${entry.date}T00:00`));
+    return entryDate >= recentCutoff && entryDate <= today;
+  });
   const yearlyMonthly = averageMoodsByMonth(yearly);
   const average = yearly.length
     ? yearly.reduce((sum, entry) => sum + entry.score, 0) / yearly.length
@@ -1590,7 +1743,7 @@ function journalLogBlock() {
 }
 
 function moodChartSvg(entries, scope) {
-  const geometry = moodChartGeometry(entries);
+  const geometry = moodChartGeometry(entries, scope);
   const points = sparklinePoints(entries, geometry);
   const dots = sparklineDots(entries, geometry);
   const axis = timelineAxis(entries, scope, geometry);
@@ -1610,24 +1763,25 @@ function moodChartSvg(entries, scope) {
   `;
 }
 
-function moodChartGeometry(entries) {
+function moodChartGeometry(entries, scope = "") {
   const count = Math.max(entries.length, 1);
-  const width = Math.min(520, Math.max(220, 160 + count * 22));
+  const width = 300;
   const left = 10;
   const right = width - 10;
   const pointRadius = count > 18 ? 1.8 : count > 10 ? 2.2 : 2.8;
   const fontSize = count > 18 ? 7 : count > 10 ? 8 : 10;
-  return { count, width, left, right, span: right - left, pointRadius, fontSize };
+  return { count, width, left, right, span: right - left, pointRadius, fontSize, scope };
 }
 
 function sparklinePoints(entries, geometry = moodChartGeometry(entries)) {
   if (entries.length === 1) {
     const y = moodY(entries[0].score);
-    return `${geometry.left},${y} ${geometry.right},${y}`;
+    const x = moodX(entries[0], 0, entries, geometry);
+    return `${geometry.left},${y} ${x.toFixed(1)},${y}`;
   }
 
   return entries.map((entry, index) => {
-    const x = geometry.left + (index / (entries.length - 1)) * geometry.span;
+    const x = moodX(entry, index, entries, geometry);
     return `${x.toFixed(1)},${moodY(entry.score)}`;
   }).join(" ");
 }
@@ -1635,13 +1789,26 @@ function sparklinePoints(entries, geometry = moodChartGeometry(entries)) {
 function sparklineDots(entries, geometry = moodChartGeometry(entries)) {
   if (!entries.length) return "";
   const points = entries.length === 1
-    ? [{ x: geometry.width / 2, y: moodY(entries[0].score) }]
+    ? [{ x: moodX(entries[0], 0, entries, geometry), y: moodY(entries[0].score) }]
     : entries.map((entry, index) => ({
-        x: geometry.left + (index / (entries.length - 1)) * geometry.span,
+        x: moodX(entry, index, entries, geometry),
         y: moodY(entry.score)
       }));
 
   return points.map((point) => `<circle class="mood-point" cx="${Number(point.x).toFixed(1)}" cy="${point.y}" r="${geometry.pointRadius}"></circle>`).join("");
+}
+
+function moodX(entry, index, entries, geometry) {
+  if (geometry.scope === "month") {
+    const today = startOfDay(new Date());
+    const start = startOfDay(today);
+    start.setDate(start.getDate() - 29);
+    const entryDate = startOfDay(new Date(`${entry.date}T00:00`));
+    const days = Math.max(0, Math.min(29, Math.round((entryDate - start) / 86400000)));
+    return geometry.left + (days / 29) * geometry.span;
+  }
+  if (entries.length === 1) return geometry.width / 2;
+  return geometry.left + (index / (entries.length - 1)) * geometry.span;
 }
 
 function timelineAxis(entries, scope, geometry = moodChartGeometry(entries)) {
@@ -1791,6 +1958,28 @@ function bindCalendarDays() {
   });
 }
 
+function bindShoppingList() {
+  const form = aiMetrics.querySelector(".shopping-form");
+  const input = form?.querySelector("input");
+  form?.addEventListener("submit", (event) => {
+    event.preventDefault();
+    addShoppingItem(input.value);
+  });
+
+  aiMetrics.querySelector(".shopping-history-toggle")?.addEventListener("click", () => {
+    showShoppingHistory = !showShoppingHistory;
+    generateLocalSummary();
+  });
+
+  aiMetrics.querySelectorAll(".shopping-check").forEach((button) => {
+    button.addEventListener("click", () => toggleShoppingItem(button.dataset.id));
+  });
+
+  aiMetrics.querySelectorAll(".shopping-delete").forEach((button) => {
+    button.addEventListener("click", () => deleteShoppingItem(button.dataset.id));
+  });
+}
+
 function selectKeyword(keyword) {
   selectedKeyword = selectedKeyword === keyword ? "" : keyword;
   renderList();
@@ -1799,11 +1988,6 @@ function selectKeyword(keyword) {
 
 function summaryBlock(title, text, className = "") {
   return `<section class="summary-block ${escapeHtml(className)}"><h3>${escapeHtml(title)}</h3><p>${escapeHtml(text)}</p></section>`;
-}
-
-function listBlock(title, entries, className = "") {
-  const listItems = entries.map((entry) => `<li>${escapeHtml(entry)}</li>`).join("");
-  return `<section class="summary-block ${escapeHtml(className)}"><h3>${escapeHtml(title)}</h3><ul>${listItems}</ul></section>`;
 }
 
 function escapeHtml(value) {
@@ -1918,6 +2102,39 @@ function deleteWorkTodo(id) {
   renderWorkTodos();
 }
 
+function addShoppingItem(text) {
+  const cleanText = String(text || "").trim();
+  if (!cleanText) return;
+  shoppingItems = [
+    {
+      id: crypto.randomUUID(),
+      text: cleanText,
+      done: false,
+      createdAt: new Date().toISOString(),
+      doneAt: ""
+    },
+    ...shoppingItems
+  ];
+  saveShoppingItems();
+  generateLocalSummary();
+}
+
+function toggleShoppingItem(id) {
+  shoppingItems = shoppingItems.map((item) => {
+    if (item.id !== id) return item;
+    const done = !item.done;
+    return { ...item, done, doneAt: done ? new Date().toISOString() : "" };
+  });
+  saveShoppingItems();
+  generateLocalSummary();
+}
+
+function deleteShoppingItem(id) {
+  shoppingItems = shoppingItems.filter((item) => item.id !== id);
+  saveShoppingItems();
+  generateLocalSummary();
+}
+
 filterButtons.forEach((button) => {
   button.addEventListener("click", () => {
     currentFilter = button.dataset.filter;
@@ -1936,7 +2153,7 @@ toggleOngoingListButton.addEventListener("click", () => {
 signInButton.addEventListener("click", signIn);
 createAccountButton.addEventListener("click", createAccount);
 syncNowButton.addEventListener("click", () => {
-  saveCloudData().catch((error) => showAuthMessage(accountErrorMessage(error), true));
+  syncNow();
 });
 signOutButton.addEventListener("click", signOutAccount);
 authForm.addEventListener("submit", (event) => {
