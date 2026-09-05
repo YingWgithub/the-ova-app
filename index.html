@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>the Ova app</title>
-    <link rel="stylesheet" href="styles.css?v=mood-fit-1" />
+    <link rel="stylesheet" href="styles.css?v=birthday-fold-1" />
   </head>
   <body>
     <main class="app-shell">
@@ -131,6 +131,28 @@
             </div>
             <p id="authMessage" class="auth-message" aria-live="polite"></p>
           </section>
+          <section class="birthday-panel" aria-label="Birthday">
+            <div class="birthday-heading">
+              <h3>Birthday</h3>
+              <span id="birthdayCount"></span>
+              <button id="birthdayToggle" type="button" aria-label="Add birthday" title="Add birthday" aria-expanded="false" aria-controls="birthdayForm">+</button>
+            </div>
+            <form id="birthdayForm" class="birthday-form" hidden>
+              <input id="birthdayName" type="text" autocomplete="off" placeholder="Name" aria-label="Birthday name" required />
+              <select id="birthdayCalendar" aria-label="Birthday calendar"><option value="solar">Gregorian</option><option value="lunar">Chinese lunar</option></select>
+              <button class="ghost-button" type="submit" aria-label="Save birthday">Add</button>
+              <input id="birthdayDate" type="date" aria-label="Birthday date" required />
+              <div id="lunarBirthdayFields" class="lunar-birthday-fields" hidden>
+                <input id="lunarBirthYear" type="number" min="1900" max="2100" placeholder="Year" aria-label="Lunar birth year" disabled required />
+                <input id="lunarBirthMonth" type="number" min="1" max="12" placeholder="Month" aria-label="Lunar birth month" disabled required />
+                <input id="lunarBirthDay" type="number" min="1" max="30" placeholder="Day" aria-label="Lunar birth day" disabled required />
+                <label class="lunar-leap"><input id="lunarBirthLeap" type="checkbox" disabled /> Leap month</label>
+                <small>Without a matching leap month, use the regular month. Day 30 uses the month's last day when needed.</small>
+              </div>
+              <p id="birthdayError" class="birthday-error" role="alert" hidden></p>
+            </form>
+            <div id="birthdayList" class="birthday-list" aria-live="polite"></div>
+          </section>
           <section class="work-todo-panel" aria-label="Work todo">
             <div class="work-todo-heading">
               <h3>Work todo</h3>
@@ -173,7 +195,9 @@
       </li>
     </template>
 
-    <script src="firebase-config.js?v=mood-fit-1"></script>
-    <script src="app.js?v=mood-fit-1"></script>
+    <script src="firebase-config.js?v=birthday-reminders-1"></script>
+    <script src="vendor/lunar-javascript/lunar.js?v=1.7.7"></script>
+    <script src="birthday-calendar.js?v=1"></script>
+    <script src="app.js?v=birthday-fold-1"></script>
   </body>
 </html>

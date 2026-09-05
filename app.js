@@ -4,6 +4,7 @@ const JOURNAL_STORAGE_KEY = "ova-moment-journal";
 const CUSTOM_TAG_STORAGE_KEY = "ova-custom-tags";
 const WORK_TODO_STORAGE_KEY = "ova-work-todos";
 const SHOPPING_STORAGE_KEY = "ova-shopping-list";
+const BIRTHDAY_STORAGE_KEY = "ova-birthday-reminders";
 const DEFAULT_CUSTOM_TAG_COLOR = "#4f9edb";
 
 const DEFAULT_TAGS = [
@@ -131,6 +132,11 @@ const workTodoTextInput = document.querySelector("#workTodoText");
 const workTodoDueInput = document.querySelector("#workTodoDue");
 const workTodoList = document.querySelector("#workTodoList");
 const workTodoCount = document.querySelector("#workTodoCount");
+const birthdayForm = document.querySelector("#birthdayForm");
+const birthdayNameInput = document.querySelector("#birthdayName");
+const birthdayDateInput = document.querySelector("#birthdayDate");
+const birthdayList = document.querySelector("#birthdayList");
+const birthdayCount = document.querySelector("#birthdayCount");
 
 let items = normalizeItems(loadItems());
 let moods = loadMoods();
@@ -138,6 +144,7 @@ let journals = loadJournals();
 let customTags = loadCustomTags();
 let workTodos = normalizeWorkTodos(loadWorkTodos());
 let shoppingItems = normalizeShoppingItems(loadShoppingItems());
+let birthdays = normalizeBirthdays(loadBirthdays());
 let selectedCustomTagColor = DEFAULT_CUSTOM_TAG_COLOR;
 let currentFilter = "all";
 let showOngoingInList = false;
@@ -219,6 +226,14 @@ function loadShoppingItems() {
   }
 }
 
+function loadBirthdays() {
+  try {
+    return JSON.parse(localStorage.getItem(BIRTHDAY_STORAGE_KEY)) || [];
+  } catch {
+    return [];
+  }
+}
+
 function saveCustomTags() {
   localStorage.setItem(CUSTOM_TAG_STORAGE_KEY, JSON.stringify(customTags));
   queueCloudSave();
@@ -280,6 +295,24 @@ function normalizeShoppingItem(value) {
     done: Boolean(value.done),
     createdAt: value.createdAt || new Date().toISOString(),
     doneAt: value.doneAt || ""
+  };
+}
+
+function normalizeBirthdays(rawBirthdays) {
+  return rawBirthdays.map(normalizeBirthday).filter(Boolean);
+}
+
+function normalizeBirthday(value) {
+  const name = String(value?.name || "").trim();
+  const birthDate = String(value?.birthDate || value?.date || "").trim();
+  if (!name || !/^\d{4}-\d{2}-\d{2}$/.test(birthDate)) return null;
+  return {
+    id: value.id || crypto.randomUUID(),
+    name,
+    birthDate,
+    calendar: value.calendar === "lunar" ? "lunar" : "solar",
+    leapMonth: value.calendar === "lunar" && Boolean(value.leapMonth),
+    createdAt: value.createdAt || new Date().toISOString()
   };
 }
 
@@ -370,6 +403,11 @@ function saveShoppingItems() {
   queueCloudSave();
 }
 
+function saveBirthdays() {
+  localStorage.setItem(BIRTHDAY_STORAGE_KEY, JSON.stringify(birthdays));
+  queueCloudSave();
+}
+
 function hasCloudConfig() {
   const config = window.OVA_FIREBASE_CONFIG;
   return Boolean(config && config.apiKey && config.projectId && config.appId);
@@ -383,6 +421,7 @@ function accountData() {
     customTags,
     workTodos,
     shoppingItems,
+    birthdays,
     schemaVersion: 1
   };
 }
@@ -396,12 +435,14 @@ function applyAccountData(data) {
   customTags = Array.isArray(data.customTags) ? data.customTags.map(normalizeCustomTag).filter(Boolean) : [];
   workTodos = normalizeWorkTodos(Array.isArray(data.workTodos) ? data.workTodos : []);
   shoppingItems = normalizeShoppingItems(Array.isArray(data.shoppingItems) ? data.shoppingItems : []);
+  birthdays = normalizeBirthdays(Array.isArray(data.birthdays) ? data.birthdays : []);
   saveItems();
   saveMoods();
   saveJournals();
   saveCustomTags();
   saveWorkTodos();
   saveShoppingItems();
+  saveBirthdays();
   isApplyingCloudData = false;
   renderTagOptions();
   renderDateHeader();
@@ -2002,6 +2043,7 @@ function escapeHtml(value) {
 function render() {
   renderList();
   renderWorkTodos();
+  renderBirthdays();
   generateLocalSummary();
 }
 
@@ -2102,6 +2144,139 @@ function deleteWorkTodo(id) {
   renderWorkTodos();
 }
 
+function addBirthday(event) {
+  event.preventDefault();
+  const name = birthdayNameInput.value.trim();
+  const calendar = document.querySelector("#birthdayCalendar").value;
+  const leapMonth = document.querySelector("#lunarBirthLeap").checked;
+  let birthDate = birthdayDateInput.value;
+  const error = document.querySelector("#birthdayError");
+  error.hidden = true;
+  if (calendar === "lunar") {
+    const year = Number(document.querySelector("#lunarBirthYear").value);
+    const month = Number(document.querySelector("#lunarBirthMonth").value);
+    const day = Number(document.querySelector("#lunarBirthDay").value);
+    try {
+      Lunar.fromYmd(year, leapMonth ? -month : month, day);
+    } catch {
+      error.textContent = "This lunar date does not exist. Check the year, month, day and leap month.";
+      error.hidden = false;
+      return;
+    }
+    birthDate = `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+  }
+  if (!name || !birthDate) return;
+  birthdays = [
+    ...birthdays,
+    {
+      id: crypto.randomUUID(),
+      name,
+      birthDate,
+      calendar,
+      leapMonth,
+      createdAt: new Date().toISOString()
+    }
+  ];
+  saveBirthdays();
+  birthdayForm.reset();
+  updateBirthdayCalendar();
+  renderBirthdays();
+  setBirthdayFormOpen(false);
+}
+
+function setBirthdayFormOpen(open) {
+  birthdayForm.hidden = !open;
+  const toggle = document.querySelector("#birthdayToggle");
+  toggle.setAttribute("aria-expanded", String(open));
+  toggle.textContent = open ? "\u00d7" : "+";
+  toggle.title = open ? "Close birthday form" : "Add birthday";
+  toggle.setAttribute("aria-label", toggle.title);
+  if (open) birthdayNameInput.focus();
+  else toggle.focus();
+}
+
+function renderBirthdays() {
+  if (!birthdayList) return;
+  const sorted = [...birthdays].sort(compareBirthdays);
+  birthdayCount.textContent = sorted.length ? `${sorted.length}` : "";
+
+  if (!sorted.length) {
+    birthdayList.innerHTML = `<p class="birthday-empty">No birthdays yet.</p>`;
+    return;
+  }
+
+  birthdayList.innerHTML = "";
+  sorted.forEach((birthday) => {
+    const row = document.createElement("div");
+    row.className = "birthday-item";
+
+    const main = document.createElement("div");
+    main.className = "birthday-main";
+
+    const name = document.createElement("strong");
+    name.textContent = birthday.name;
+
+    const date = document.createElement("span");
+    const upcoming = nextBirthdayDate(birthday);
+    const regularDate = new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric", year: "numeric" }).format(upcoming);
+    date.textContent = birthday.calendar === "lunar"
+      ? `Lunar ${birthday.birthDate}${birthday.leapMonth ? " (leap)" : ""} · ${regularDate}`
+      : `${formatBirthdayDate(birthday.birthDate)} · Next ${regularDate}`;
+
+    const timing = document.createElement("em");
+    timing.textContent = birthdayTimingLabel(birthday);
+
+    const deleteButton = document.createElement("button");
+    deleteButton.className = "birthday-delete";
+    deleteButton.type = "button";
+    deleteButton.ariaLabel = "Delete birthday reminder";
+    deleteButton.textContent = "x";
+    deleteButton.addEventListener("click", () => deleteBirthday(birthday.id));
+
+    main.append(name, date);
+    row.append(main, timing, deleteButton);
+    birthdayList.appendChild(row);
+  });
+}
+
+function compareBirthdays(a, b) {
+  const aDays = birthdayDaysAway(a);
+  const bDays = birthdayDaysAway(b);
+  if (aDays !== bDays) return aDays - bDays;
+  return a.name.localeCompare(b.name);
+}
+
+function birthdayTimingLabel(birthday) {
+  const days = birthdayDaysAway(birthday);
+  return `in ${days} day${days === 1 ? "" : "s"}`;
+}
+
+function updateBirthdayCalendar() {
+  const lunar = document.querySelector("#birthdayCalendar").value === "lunar";
+  birthdayDateInput.hidden = lunar;
+  birthdayDateInput.disabled = lunar;
+  const fields = document.querySelector("#lunarBirthdayFields");
+  fields.hidden = !lunar;
+  fields.querySelectorAll("input").forEach((input) => { input.disabled = !lunar; });
+  document.querySelector("#birthdayError").hidden = true;
+}
+
+function formatBirthdayDate(birthDate) {
+  const [year, month, day] = birthDate.split("-").map(Number);
+  const date = new Date(year, month - 1, day);
+  return new Intl.DateTimeFormat(undefined, {
+    month: "short",
+    day: "numeric",
+    year: "numeric"
+  }).format(date);
+}
+
+function deleteBirthday(id) {
+  birthdays = birthdays.filter((birthday) => birthday.id !== id);
+  saveBirthdays();
+  renderBirthdays();
+}
+
 function addShoppingItem(text) {
   const cleanText = String(text || "").trim();
   if (!cleanText) return;
@@ -2145,6 +2320,14 @@ filterButtons.forEach((button) => {
 
 form.addEventListener("submit", addItem);
 workTodoForm.addEventListener("submit", addWorkTodo);
+birthdayForm.addEventListener("submit", addBirthday);
+document.querySelector("#birthdayToggle").addEventListener("click", () => setBirthdayFormOpen(birthdayForm.hidden));
+birthdayForm.addEventListener("keydown", (event) => {
+  if (event.key === "Escape") setBirthdayFormOpen(false);
+});
+document.querySelector("#birthdayCalendar").addEventListener("change", updateBirthdayCalendar);
+window.addEventListener("focus", renderBirthdays);
+setInterval(renderBirthdays, 60000);
 clearDoneButton.addEventListener("click", clearDone);
 toggleOngoingListButton.addEventListener("click", () => {
   showOngoingInList = !showOngoingInList;
